@@ -235,6 +235,8 @@ export default function Home() {
         <div className="text-center">
           <a
             href="https://m1ke.digital"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-[#707070] text-[11px] hover:text-white transition-colors"
             style={{ letterSpacing: "0.05em" }}
           >
