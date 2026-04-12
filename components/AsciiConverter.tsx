@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { imageToASCII } from "@/lib/ascii";
 import Controls from "./Controls";
 import AsciiPreview from "./AsciiPreview";
@@ -54,6 +54,10 @@ export default function AsciiConverter({
     img.src = imageData;
   }, [imageData, settings]);
 
+  const handleSettingsChange = useCallback((newSettings: AsciiSettings) => {
+    setSettings(newSettings);
+  }, []);
+
   const handleExport = (format: "png" | "jpg") => {
     if (!canvasRef.current) return;
 
@@ -80,7 +84,7 @@ export default function AsciiConverter({
       <div className="w-80 border-l border-[rgba(255,255,255,0.2)] bg-[#0a0a0a] flex flex-col overflow-auto">
         <Controls
           settings={settings}
-          onSettingsChange={setSettings}
+          onSettingsChange={handleSettingsChange}
           onExport={handleExport}
           onClear={onClear}
         />

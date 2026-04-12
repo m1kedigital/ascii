@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useMemo } from "react";
 import { AsciiSettings } from "./AsciiConverter";
 
 interface ControlsProps {
@@ -23,120 +24,136 @@ export default function Controls({
   onExport,
   onClear,
 }: ControlsProps) {
-  const colorModes: Array<AsciiSettings["colorMode"]> = [
-    "mono",
-    "preserve",
-    "invert",
-  ];
-  const backgroundModes: Array<AsciiSettings["background"]> = [
-    "white",
-    "black",
-    "transparent",
-  ];
-  const exportSizes: Array<AsciiSettings["exportSize"]> = [1, 2, 4];
-
-  const SegmentedControl = ({
-    label,
-    value,
-    options,
-    onChange,
-    dividerAbove,
-  }: {
-    label: string;
-    value: string;
-    options: Array<{ id: string; label: string }>;
-    onChange: (id: string) => void;
-    dividerAbove?: boolean;
-  }) => (
-    <div style={dividerAbove ? { paddingTop: "24px", borderTop: "1px solid #1a1a1a" } : { paddingTop: "24px" }}>
-      <div
-        className="text-xs font-medium tracking-[0.1em] uppercase text-[#707070] mb-2"
-        style={{ letterSpacing: "0.1em", marginBottom: "8px" }}
-      >
-        {label}
-      </div>
-      <div className="flex flex-col gap-1">
-        {options.map((opt) => (
-          <button
-            key={opt.id}
-            onClick={() => onChange(opt.id)}
-            className={`text-xs font-medium tracking-widest uppercase transition-all ${
-              value === opt.id
-                ? "bg-white text-black"
-                : "bg-transparent text-[#707070] hover:bg-[rgba(255,255,255,0.05)]"
-            }`}
-            style={{
-              padding: "8px 12px",
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
+  const colorModes: Array<AsciiSettings["colorMode"]> = useMemo(
+    () => ["mono", "preserve", "invert"],
+    []
+  );
+  const backgroundModes: Array<AsciiSettings["background"]> = useMemo(
+    () => ["white", "black", "transparent"],
+    []
+  );
+  const exportSizes: Array<AsciiSettings["exportSize"]> = useMemo(
+    () => [1, 2, 4],
+    []
   );
 
-  const Slider = ({
-    label,
-    value,
-    min,
-    max,
-    step,
-    onChange,
-    formatValue,
-  }: {
-    label: string;
-    value: number;
-    min: number;
-    max: number;
-    step?: number;
-    onChange: (val: number) => void;
-    formatValue: (val: number) => string;
-  }) => (
-    <div style={{ paddingTop: "24px" }}>
-      <div className="flex justify-between items-baseline" style={{ marginBottom: "12px" }}>
+  const charsetOptions = useMemo(
+    () =>
+      Object.entries(charsetLabels).map(([id, label]) => ({
+        id,
+        label,
+      })),
+    []
+  );
+
+  const SegmentedControl = useCallback(
+    ({
+      label,
+      value,
+      options,
+      onChange,
+      dividerAbove,
+    }: {
+      label: string;
+      value: string;
+      options: Array<{ id: string; label: string }>;
+      onChange: (id: string) => void;
+      dividerAbove?: boolean;
+    }) => (
+      <div style={dividerAbove ? { paddingTop: "24px", borderTop: "1px solid #1a1a1a" } : { paddingTop: "24px" }}>
         <div
-          className="text-xs font-medium tracking-[0.1em] uppercase text-[#707070]"
-          style={{ letterSpacing: "0.1em" }}
+          className="text-xs font-medium tracking-[0.1em] uppercase text-[#707070] mb-2"
+          style={{ letterSpacing: "0.1em", marginBottom: "8px" }}
         >
           {label}
         </div>
-        <div className="text-xs font-medium text-white text-right font-mono">
-          {formatValue(value)}
+        <div className="flex flex-col gap-1">
+          {options.map((opt) => (
+            <button
+              key={opt.id}
+              onClick={() => onChange(opt.id)}
+              className={`text-xs font-medium tracking-widest uppercase transition-all ${
+                value === opt.id
+                  ? "bg-white text-black"
+                  : "bg-transparent text-[#707070] hover:bg-[rgba(255,255,255,0.05)]"
+              }`}
+              style={{
+                padding: "8px 12px",
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step || "1"}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-1 appearance-none cursor-pointer"
-        style={{
-          background: "white",
-          WebkitAppearance: "none",
-        }}
-      />
-      <style>{`
-        input[type="range"]::-webkit-slider-thumb {
-          appearance: none;
-          width: 8px;
-          height: 8px;
-          background: white;
-          cursor: pointer;
-          border: 1px solid rgba(255, 255, 255, 0.5);
-        }
-        input[type="range"]::-moz-range-thumb {
-          width: 8px;
-          height: 8px;
-          background: white;
-          cursor: pointer;
-          border: 1px solid rgba(255, 255, 255, 0.5);
-          border-radius: 0;
-        }
-      `}</style>
-    </div>
+    ),
+    []
+  );
+
+  const Slider = useCallback(
+    ({
+      label,
+      value,
+      min,
+      max,
+      step,
+      onChange,
+      formatValue,
+    }: {
+      label: string;
+      value: number;
+      min: number;
+      max: number;
+      step?: number;
+      onChange: (val: number) => void;
+      formatValue: (val: number) => string;
+    }) => (
+      <div style={{ paddingTop: "24px" }}>
+        <div className="flex justify-between items-baseline" style={{ marginBottom: "12px" }}>
+          <div
+            className="text-xs font-medium tracking-[0.1em] uppercase text-[#707070]"
+            style={{ letterSpacing: "0.1em" }}
+          >
+            {label}
+          </div>
+          <div className="text-xs font-medium text-white text-right font-mono">
+            {formatValue(value)}
+          </div>
+        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step || "1"}
+          value={value}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
+          className="w-full h-1 appearance-none cursor-pointer"
+          style={{
+            background: "white",
+            WebkitAppearance: "none",
+          }}
+        />
+        <style>{`
+          input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 8px;
+            height: 8px;
+            background: white;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+          }
+          input[type="range"]::-moz-range-thumb {
+            width: 8px;
+            height: 8px;
+            background: white;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 0;
+          }
+        `}</style>
+      </div>
+    ),
+    []
   );
 
   return (
@@ -151,10 +168,7 @@ export default function Controls({
       <SegmentedControl
         label="CHARACTER SET"
         value={settings.charset}
-        options={Object.entries(charsetLabels).map(([id, label]) => ({
-          id,
-          label,
-        }))}
+        options={charsetOptions}
         onChange={(id) =>
           onSettingsChange({
             ...settings,
@@ -221,10 +235,14 @@ export default function Controls({
       <SegmentedControl
         label="COLOR MODE"
         value={settings.colorMode}
-        options={colorModes.map((mode) => ({
-          id: mode,
-          label: mode.toUpperCase(),
-        }))}
+        options={useMemo(
+          () =>
+            colorModes.map((mode) => ({
+              id: mode,
+              label: mode.toUpperCase(),
+            })),
+          [colorModes]
+        )}
         onChange={(id) =>
           onSettingsChange({
             ...settings,
@@ -238,10 +256,14 @@ export default function Controls({
       <SegmentedControl
         label="BACKGROUND"
         value={settings.background}
-        options={backgroundModes.map((mode) => ({
-          id: mode,
-          label: mode.toUpperCase(),
-        }))}
+        options={useMemo(
+          () =>
+            backgroundModes.map((mode) => ({
+              id: mode,
+              label: mode.toUpperCase(),
+            })),
+          [backgroundModes]
+        )}
         onChange={(id) =>
           onSettingsChange({
             ...settings,
