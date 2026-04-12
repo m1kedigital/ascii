@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ASCII
 
-## Getting Started
+Image to ASCII art converter. Free, client-side, no uploads.
 
-First, run the development server:
+🔗 [ascii.m1ke.digital](https://ascii.m1ke.digital)
+
+![screenshot](docs/screenshot.png)
+
+## About
+
+Convert any image into ASCII art with full control over character set, density, tone, and color. All processing happens in the browser — no server, no uploads, no tracking.
+
+Built as part of [m1ke.digital](https://m1ke.digital) Labs.
+
+## Features
+
+- 5 character sets (standard, dense, blocks, binary, dots)
+- Density and tile aspect control
+- Contrast, cut darks, cut lights for fine tonal control
+- Three color modes: mono, preserve (original colors), invert
+- Three backgrounds: white, black, transparent
+- Export as PNG or JPG (1x, 2x, 4x upscale)
+- Drag & drop, click, or paste (⌘V) to upload
+
+## Stack
+
+- Next.js 15 (App Router)
+- TypeScript
+- Tailwind CSS
+- IBM Plex Mono
+- Canvas 2D for rendering
+- Deployed on Vercel
+
+## Running locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+git clone git@github.com:m1kedigital/ascii.git
+cd ascii
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## License
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+MIT
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Built by [@m1kedigital](https://m1ke.digital).
