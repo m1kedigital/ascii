@@ -8,6 +8,62 @@ const CHARSETS = {
   dots: "·•●",
 };
 
+// Convert RGB to HSL
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0,
+    s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        break;
+      case g:
+        h = ((b - r) / d + 2) / 6;
+        break;
+      case b:
+        h = ((r - g) / d + 4) / 6;
+        break;
+    }
+  }
+
+  return [h, s, l];
+}
+
+// Convert HSL to RGB
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  let r, g, b;
+
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
 export function imageToASCII(
   img: HTMLImageElement,
   settings: AsciiSettings
@@ -16,11 +72,10 @@ export function imageToASCII(
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
 
-  // Set canvas size with tileAspect compensation for vertical stretching
+  // Set canvas size proportional to input image (preserves aspect ratio)
   const scale = settings.cellSize / 4; // Base scale for readable ASCII
   canvas.width = Math.max(40, Math.floor(img.width / scale));
-  // Adjust height by tileAspect to compensate for character height-to-width ratio
-  canvas.height = Math.max(20, Math.floor((img.height / scale) * settings.tileAspect));
+  canvas.height = Math.max(20, Math.floor(img.height / scale));
 
   // Draw image on canvas
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -31,13 +86,18 @@ export function imageToASCII(
   const width = canvas.width;
   const height = canvas.height;
 
+  // Vertical step based on tileAspect (how many rows per ASCII line)
+  const verticalStep = 1 / settings.tileAspect;
+
   let ascii = "";
   const colors: (string | null)[][] = [];
-  let colorRow: (string | null)[] = [];
 
-  for (let i = 0; i < height; i++) {
+  for (let i = 0; i < height; i += verticalStep) {
+    let colorRow: (string | null)[] = [];
+    const rowIdx = Math.floor(i);
+
     for (let j = 0; j < width; j++) {
-      const pixelIndex = (i * width + j) * 4;
+      const pixelIndex = (rowIdx * width + j) * 4;
       let r = data[pixelIndex];
       let g = data[pixelIndex + 1];
       let b = data[pixelIndex + 2];
@@ -84,20 +144,20 @@ export function imageToASCII(
         let adjustedB = b;
 
         if (settings.background === "black" || settings.background === "transparent") {
-          // Ensure minimum luminance of 0.25 for readability on dark background
-          if (luminance < 0.25) {
-            const scale = 0.25 / Math.max(luminance, 0.01);
-            adjustedR = Math.min(255, Math.floor(r * scale));
-            adjustedG = Math.min(255, Math.floor(g * scale));
-            adjustedB = Math.min(255, Math.floor(b * scale));
+          // Ensure minimum luminance of 0.35 for readability on dark background
+          if (luminance < 0.35) {
+            // Convert to HSL, boost L, convert back
+            const [h, s, l] = rgbToHsl(r, g, b);
+            const boostedL = Math.max(l, 0.35);
+            [adjustedR, adjustedG, adjustedB] = hslToRgb(h, s, boostedL);
           }
         } else if (settings.background === "white") {
           // Ensure maximum luminance of 0.75 for readability on light background
           if (luminance > 0.75) {
-            const scale = 0.75 / Math.max(luminance, 0.01);
-            adjustedR = Math.floor(r * scale);
-            adjustedG = Math.floor(g * scale);
-            adjustedB = Math.floor(b * scale);
+            // Convert to HSL, reduce L, convert back
+            const [h, s, l] = rgbToHsl(r, g, b);
+            const cappedL = Math.min(l, 0.75);
+            [adjustedR, adjustedG, adjustedB] = hslToRgb(h, s, cappedL);
           }
         }
 
@@ -111,7 +171,6 @@ export function imageToASCII(
 
     ascii += "\n";
     colors.push(colorRow);
-    colorRow = [];
   }
 
   return { ascii, colors };

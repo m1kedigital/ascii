@@ -231,7 +231,7 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <div className="px-8 py-3">
+      <div className="px-8 absolute bottom-20" style={{ left: "0", right: "0" }}>
         <div className="text-center">
           <a
             href="https://m1ke.digital"
