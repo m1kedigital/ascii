@@ -1,65 +1,308 @@
-import Image from "next/image";
+"use client";
+
+import { useRef, useState, useEffect } from "react";
+import AsciiConverter from "@/components/AsciiConverter";
+
+const SAMPLE_IMAGES = [
+  {
+    url: "/samples/01-architecture.jpg",
+    alt: "Lisbon cobblestone street",
+  },
+  {
+    url: "/samples/02-street.jpg",
+    alt: "Man walking in Barcelona",
+  },
+  {
+    url: "/samples/03-nature.jpg",
+    alt: "Waves on rocky coastline",
+  },
+  {
+    url: "/samples/04-object.jpg",
+    alt: "Gondolas over city",
+  },
+];
 
 export default function Home() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageData, setImageData] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleImageLoad = (dataUrl: string) => {
+    setImageData(dataUrl);
+  };
+
+  const handleImageClear = () => {
+    setImageData(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const processFile = (file: File) => {
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (typeof event.target?.result === "string") {
+          handleImageLoad(event.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSampleClick = (url: string) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        handleImageLoad(canvas.toDataURL("image/jpeg"));
+      }
+    };
+    img.src = url;
+  };
+
+  // Handle paste from clipboard
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (items) {
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type.startsWith("image/")) {
+            const file = items[i].getAsFile();
+            if (file) {
+              processFile(file);
+            }
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex flex-col h-screen bg-[#0a0a0a] text-white">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.currentTarget.files?.[0];
+          if (file) {
+            processFile(file);
+          }
+        }}
+      />
+
+      {!imageData ? (
+        <div
+          className="flex flex-1 flex-col items-center justify-center relative transition-colors"
+          style={{
+            backgroundColor: isDragging ? "#0f0f0f" : "#0a0a0a",
+          }}
+          onDragEnter={() => setIsDragging(true)}
+          onDragLeave={() => setIsDragging(false)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            const file = e.dataTransfer.files[0];
+            if (file) {
+              processFile(file);
+            }
+          }}
+        >
+          {/* Viewport corner markers */}
+          <div
+            className="absolute top-10 left-10 w-4 h-4 border-t border-l transition-all"
+            style={{
+              borderColor: isDragging ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)",
+            }}
+          ></div>
+          <div
+            className="absolute top-10 right-10 w-4 h-4 border-t border-r transition-all"
+            style={{
+              borderColor: isDragging ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)",
+            }}
+          ></div>
+          <div
+            className="absolute bottom-10 left-10 w-4 h-4 border-b border-l transition-all"
+            style={{
+              borderColor: isDragging ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)",
+            }}
+          ></div>
+          <div
+            className="absolute bottom-10 right-10 w-4 h-4 border-b border-r transition-all"
+            style={{
+              borderColor: isDragging ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)",
+            }}
+          ></div>
+
+          {/* Unified centered content block */}
+          <div className="flex flex-col items-center">
+            {/* Heading group - clickable to open file picker */}
+            <div
+              className="text-center cursor-pointer select-none"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div
+                className="font-medium uppercase"
+                style={{
+                  fontSize: "28px",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                DROP IMAGE HERE
+              </div>
+              <div
+                className="text-[#707070] text-xs tracking-widest uppercase"
+                style={{
+                  marginTop: "8px",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                OR CLICK TO BROWSE
+              </div>
+              <div
+                className="text-[#505050] text-[10px] tracking-[0.1em] uppercase"
+                style={{
+                  marginTop: "6px",
+                  letterSpacing: "0.1em",
+                }}
+              >
+                OR PASTE FROM CLIPBOARD (⌘V)
+              </div>
+            </div>
+
+            {/* Samples section */}
+            <div
+              className="flex flex-col items-center"
+              style={{ marginTop: "48px" }}
+            >
+              <div
+                className="text-[#707070] text-[10px] tracking-[0.1em] uppercase text-center"
+                style={{ letterSpacing: "0.1em" }}
+              >
+                TRY WITH SAMPLE
+              </div>
+              <div
+                className="flex items-center justify-center"
+                style={{ marginTop: "16px", gap: "12px" }}
+              >
+                {SAMPLE_IMAGES.map((sample, idx) => (
+                  <SampleImage
+                    key={idx}
+                    url={sample.url}
+                    alt={sample.alt}
+                    onClick={() => handleSampleClick(sample.url)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Credit line */}
+            <a
+              href="https://unsplash.com/@m1kedigital"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#505050] text-[10px] tracking-[0.1em] uppercase hover:text-[#707070] transition-colors text-center"
+              style={{
+                marginTop: "20px",
+                letterSpacing: "0.1em",
+              }}
+            >
+              photos by @m1kedigital on unsplash
+            </a>
+          </div>
+        </div>
+      ) : (
+        <AsciiConverter
+          imageData={imageData}
+          onClear={handleImageClear}
+          fileInputRef={fileInputRef}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+      )}
+
+      {/* Footer */}
+      <div className="px-8 py-3">
+        <div className="text-center">
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="https://m1ke.digital"
+            className="text-[#707070] text-[11px] hover:text-white transition-colors"
+            style={{ letterSpacing: "0.05em" }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
+            by{" "}
+            <span className="text-white hover:text-[#707070] transition-colors">
+              m1ke.digital
+            </span>
           </a>
         </div>
-      </main>
+      </div>
     </div>
+  );
+}
+
+interface SampleImageProps {
+  url: string;
+  alt: string;
+  onClick: () => void;
+}
+
+function SampleImage({ url, alt, onClick }: SampleImageProps) {
+  const [hover, setHover] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      className="relative overflow-hidden cursor-pointer transition-opacity group flex-shrink-0"
+      style={{ width: "80px", height: "80px" }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <img
+        src={url}
+        alt={alt}
+        loading="eager"
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
+        }}
+      />
+
+      {/* Corner markers */}
+      <div
+        className="absolute top-1 left-1 w-2 h-2 border-t border-l transition-all pointer-events-none"
+        style={{
+          borderColor: hover ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)",
+        }}
+      ></div>
+      <div
+        className="absolute top-1 right-1 w-2 h-2 border-t border-r transition-all pointer-events-none"
+        style={{
+          borderColor: hover ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)",
+        }}
+      ></div>
+      <div
+        className="absolute bottom-1 left-1 w-2 h-2 border-b border-l transition-all pointer-events-none"
+        style={{
+          borderColor: hover ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)",
+        }}
+      ></div>
+      <div
+        className="absolute bottom-1 right-1 w-2 h-2 border-b border-r transition-all pointer-events-none"
+        style={{
+          borderColor: hover ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)",
+        }}
+      ></div>
+    </button>
   );
 }
