@@ -89,8 +89,52 @@ export function imageToASCII(
 
   // Draw image on canvas
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
+  let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let data = imageData.data;
+
+  // Analyze average brightness
+  let totalBrightness = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+    totalBrightness += brightness;
+  }
+  const avgBrightness = totalBrightness / (data.length / 4);
+  console.log("Average image brightness:", avgBrightness.toFixed(2));
+
+  // If image is too dark, enhance it
+  if (avgBrightness < 0.3) {
+    console.log("Image too dark, enhancing contrast and brightness");
+    // Enhance dark images
+    for (let i = 0; i < data.length; i += 4) {
+      let r = data[i];
+      let g = data[i + 1];
+      let b = data[i + 2];
+
+      // Boost brightness
+      r = Math.min(255, r * 1.3);
+      g = Math.min(255, g * 1.3);
+      b = Math.min(255, b * 1.3);
+
+      // Increase contrast
+      const contrast = 1.5;
+      const mid = 128;
+      r = Math.max(0, Math.min(255, (r - mid) * contrast + mid));
+      g = Math.max(0, Math.min(255, (g - mid) * contrast + mid));
+      b = Math.max(0, Math.min(255, (b - mid) * contrast + mid));
+
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+    }
+
+    // Put enhanced data back
+    ctx.putImageData(imageData, 0, 0);
+    imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    data = imageData.data;
+  }
 
   const charset = CHARSETS[settings.charset];
   const width = canvas.width;
