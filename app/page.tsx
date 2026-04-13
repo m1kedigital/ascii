@@ -41,6 +41,8 @@ export default function Home() {
 
   const processFile = (file: File) => {
     if (file && file.type.startsWith("image/")) {
+      console.log("Processing file:", file.name, file.type, file.size);
+
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         console.error("File too large");
@@ -50,20 +52,25 @@ export default function Home() {
       const reader = new FileReader();
       reader.onload = (event) => {
         if (typeof event.target?.result === "string") {
+          console.log("File read as data URL, length:", event.target.result.length);
+
           // Process image through canvas like samples for consistent handling
           const img = new Image();
           img.onload = () => {
+            console.log("Image loaded from data URL:", img.width, "x", img.height);
             const canvas = document.createElement("canvas");
             canvas.width = img.width;
             canvas.height = img.height;
             const ctx = canvas.getContext("2d");
             if (ctx) {
               ctx.drawImage(img, 0, 0);
-              handleImageLoad(canvas.toDataURL("image/jpeg"));
+              const resultDataUrl = canvas.toDataURL("image/png");
+              console.log("Canvas processed, result data URL length:", resultDataUrl.length);
+              handleImageLoad(resultDataUrl);
             }
           };
           img.onerror = () => {
-            console.error("Failed to process image");
+            console.error("Failed to load image from data URL");
           };
           img.src = event.target.result;
         }

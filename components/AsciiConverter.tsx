@@ -51,7 +51,9 @@ export default function AsciiConverter({
 
     img.onload = () => {
       try {
+        console.log("Image loaded:", img.width, "x", img.height);
         const { ascii, colors } = imageToASCII(img, settings);
+        console.log("ASCII generated, lines:", ascii.split("\n").length);
         setAsciiData(ascii);
         setAsciiColors(colors);
       } catch (err) {
@@ -67,6 +69,7 @@ export default function AsciiConverter({
       setAsciiColors([]);
     };
 
+    console.log("Loading image, data URL length:", imageData?.length || 0);
     img.src = imageData;
   }, [imageData, settings]);
 
