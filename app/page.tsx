@@ -53,26 +53,8 @@ export default function Home() {
       reader.onload = (event) => {
         if (typeof event.target?.result === "string") {
           console.log("File read as data URL, length:", event.target.result.length);
-
-          // Process image through canvas like samples for consistent handling
-          const img = new Image();
-          img.onload = () => {
-            console.log("Image loaded from data URL:", img.width, "x", img.height);
-            const canvas = document.createElement("canvas");
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-              ctx.drawImage(img, 0, 0);
-              const resultDataUrl = canvas.toDataURL("image/png");
-              console.log("Canvas processed, result data URL length:", resultDataUrl.length);
-              handleImageLoad(resultDataUrl);
-            }
-          };
-          img.onerror = () => {
-            console.error("Failed to load image from data URL");
-          };
-          img.src = event.target.result;
+          // Load directly without canvas processing
+          handleImageLoad(event.target.result);
         }
       };
       reader.onerror = () => {
