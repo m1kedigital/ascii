@@ -103,10 +103,15 @@ export default function Home() {
 
             img.onerror = () => {
               console.error("Failed to load image");
+              // On error, try original directly
               handleImageLoad(event.target!.result as string);
             };
 
-            img.src = event.target.result;
+            // Add delay for iOS to ensure image is fully ready
+            const result = event.target!.result as string;
+            setTimeout(() => {
+              img.src = result;
+            }, 100);
           }
         };
         reader.onerror = () => {

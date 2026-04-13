@@ -103,7 +103,7 @@ export function imageToASCII(
   console.log("Canvas size:", canvas.width, "x", canvas.height, "pixels:", pixelCount, "avgBrightness:", avgBrightness.toFixed(2));
 
   // If image is completely black or nearly black, try to recover it
-  if (avgBrightness < 0.1) {
+  if (avgBrightness < 0.15) {
     console.log("Image is nearly pure black, attempting inversion");
     // Last resort: invert the image
     for (let i = 0; i < data.length; i += 4) {
