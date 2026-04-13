@@ -32,11 +32,12 @@ export default function AsciiPreview({
 
   return (
     <div
-      className="relative border border-[rgba(255,255,255,0.2)] bg-[#000000] p-4 flex items-center justify-center w-full overflow-auto"
+      className="relative border border-[rgba(255,255,255,0.2)] p-4 flex items-center justify-center w-full overflow-auto"
       style={{
         flex: 1,
         maxHeight: isMobile ? "100%" : "calc(100vh - 120px)",
-        minHeight: 0,
+        minHeight: isMobile ? "200px" : 0,
+        backgroundColor: asciiData ? "#000000" : "#111111",
       }}
     >
       {/* Corner markers */}
