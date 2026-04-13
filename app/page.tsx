@@ -131,32 +131,6 @@ export default function Home() {
             }
           }}
         >
-          {/* Viewport corner markers */}
-          <div
-            className="absolute top-10 left-10 w-4 h-4 border-t border-l transition-all"
-            style={{
-              borderColor: isDragging ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)",
-            }}
-          ></div>
-          <div
-            className="absolute top-10 right-10 w-4 h-4 border-t border-r transition-all"
-            style={{
-              borderColor: isDragging ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)",
-            }}
-          ></div>
-          <div
-            className="absolute bottom-10 left-10 w-4 h-4 border-b border-l transition-all"
-            style={{
-              borderColor: isDragging ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)",
-            }}
-          ></div>
-          <div
-            className="absolute bottom-10 right-10 w-4 h-4 border-b border-r transition-all"
-            style={{
-              borderColor: isDragging ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)",
-            }}
-          ></div>
-
           {/* Unified centered content block */}
           <div className="flex flex-col items-center">
             {/* Heading group - clickable to open file picker */}
@@ -293,32 +267,6 @@ function SampleImage({ url, alt, onClick }: SampleImageProps) {
           display: "block",
         }}
       />
-
-      {/* Corner markers */}
-      <div
-        className="absolute top-1 left-1 w-2 h-2 border-t border-l transition-all pointer-events-none"
-        style={{
-          borderColor: hover ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)",
-        }}
-      ></div>
-      <div
-        className="absolute top-1 right-1 w-2 h-2 border-t border-r transition-all pointer-events-none"
-        style={{
-          borderColor: hover ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)",
-        }}
-      ></div>
-      <div
-        className="absolute bottom-1 left-1 w-2 h-2 border-b border-l transition-all pointer-events-none"
-        style={{
-          borderColor: hover ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)",
-        }}
-      ></div>
-      <div
-        className="absolute bottom-1 right-1 w-2 h-2 border-b border-r transition-all pointer-events-none"
-        style={{
-          borderColor: hover ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)",
-        }}
-      ></div>
     </button>
   );
 }
