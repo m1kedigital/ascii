@@ -82,17 +82,26 @@ export default function Home() {
             img.onload = () => {
               console.log("Image loaded:", img.width, "x", img.height);
 
+              // Downscale large images to avoid iOS canvas pixel limit
+              const MAX_DIM = 2048;
+              let w = img.width;
+              let h = img.height;
+              if (w > MAX_DIM || h > MAX_DIM) {
+                const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+                console.log("Downscaled to:", w, "x", h);
+              }
+
               // Create canvas and redraw to normalize (handles EXIF rotation, etc)
               const canvas = document.createElement("canvas");
-              canvas.width = img.width;
-              canvas.height = img.height;
+              canvas.width = w;
+              canvas.height = h;
               const ctx = canvas.getContext("2d");
 
               if (ctx) {
-                // Draw directly without background to preserve transparency/original colors
-                ctx.drawImage(img, 0, 0);
-                // Convert to JPEG to avoid PNG transparency issues on mobile
-                const normalizedDataUrl = canvas.toDataURL("image/jpeg", 0.95);
+                ctx.drawImage(img, 0, 0, w, h);
+                const normalizedDataUrl = canvas.toDataURL("image/jpeg", 0.92);
                 console.log("Image re-encoded via canvas to JPEG");
                 handleImageLoad(normalizedDataUrl);
               } else {
@@ -107,11 +116,8 @@ export default function Home() {
               handleImageLoad(event.target!.result as string);
             };
 
-            // Add delay for iOS to ensure image is fully ready
-            const result = event.target!.result as string;
-            setTimeout(() => {
-              img.src = result;
-            }, 100);
+            // NO DELAY - process immediately like samples
+            img.src = event.target.result;
           }
         };
         reader.onerror = () => {

@@ -66,7 +66,8 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 
 export function imageToASCII(
   img: HTMLImageElement,
-  settings: AsciiSettings
+  settings: AsciiSettings,
+  maxColumns?: number
 ): { ascii: string; colors: (string | null)[][] } {
   // Create canvas to read image data
   const canvas = document.createElement("canvas");
@@ -82,6 +83,13 @@ export function imageToASCII(
   const scale = settings.cellSize / 4; // Base scale for readable ASCII
   canvas.width = Math.max(40, Math.floor(img.width / scale));
   canvas.height = Math.max(20, Math.floor(img.height / scale));
+
+  // Limit columns for mobile to keep canvas renderable
+  if (maxColumns && canvas.width > maxColumns) {
+    const ratio = maxColumns / canvas.width;
+    canvas.height = Math.max(20, Math.floor(canvas.height * ratio));
+    canvas.width = maxColumns;
+  }
 
   // Draw image on canvas (background handling done in page.tsx)
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);

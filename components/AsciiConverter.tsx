@@ -53,7 +53,10 @@ export default function AsciiConverter({
       try {
         console.log("Image loaded:", img.width, "x", img.height);
         const startTime = performance.now();
-        const { ascii, colors } = imageToASCII(img, settings);
+        // Check viewport directly — isMobile state may not be set yet on first render
+        const mobile = window.innerWidth <= 768;
+        const maxCols = mobile ? 120 : undefined;
+        const { ascii, colors } = imageToASCII(img, settings, maxCols);
         const endTime = performance.now();
         console.log("ASCII generated in", (endTime - startTime).toFixed(0), "ms, lines:", ascii.split("\n").length);
 

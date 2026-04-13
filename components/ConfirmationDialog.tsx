@@ -35,7 +35,7 @@ export default function ConfirmationDialog({
         }}
       >
         <h2 className="text-base font-medium mb-2">{title}</h2>
-        <p className="text-sm text-[#707070] mb-6">{message}</p>
+        <p className="text-sm text-[#707070]" style={{ marginBottom: "24px" }}>{message}</p>
 
         {/* Buttons */}
         <div className="flex gap-2 flex-col-reverse">
