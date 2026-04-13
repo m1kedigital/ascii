@@ -37,6 +37,12 @@ export default function AsciiPreview({
         maxHeight: isMobile ? "100%" : "calc(100vh - 120px)",
       }}
     >
+      {/* Corner markers */}
+      <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-white opacity-50"></div>
+      <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-white opacity-50"></div>
+      <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-white opacity-50"></div>
+      <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-white opacity-50"></div>
+
       <canvas
         ref={canvasRef}
         style={{
