@@ -34,7 +34,7 @@ export default function AsciiConverter({
     charset: "standard",
     cellSize: 10,
     tileAspect: 0.55,
-    contrast: 1.2,
+    contrast: 1.5,
     cutDarks: 0,
     cutLights: 0.0,
     colorMode: "mono",

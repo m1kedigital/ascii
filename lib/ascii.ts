@@ -100,22 +100,27 @@ export function imageToASCII(
   const avgBrightness = totalBrightness / (data.length / 4);
   console.log("Average image brightness:", avgBrightness.toFixed(2));
 
-  // If image is too dark, enhance it
-  if (avgBrightness < 0.3) {
-    console.log("Image too dark, enhancing contrast and brightness");
+  // If image is too dark, enhance it aggressively
+  if (avgBrightness < 0.35) {
+    console.log("Image too dark, applying aggressive enhancement");
     // Enhance dark images
     for (let i = 0; i < data.length; i += 4) {
       let r = data[i];
       let g = data[i + 1];
       let b = data[i + 2];
+      const a = data[i + 3];
 
-      // Boost brightness
-      r = Math.min(255, r * 1.3);
-      g = Math.min(255, g * 1.3);
-      b = Math.min(255, b * 1.3);
+      // Skip fully transparent pixels
+      if (a === 0) continue;
 
-      // Increase contrast
-      const contrast = 1.5;
+      // Aggressive brightness boost for very dark images
+      const brightnessFactor = avgBrightness < 0.15 ? 2.0 : 1.6;
+      r = Math.min(255, r * brightnessFactor);
+      g = Math.min(255, g * brightnessFactor);
+      b = Math.min(255, b * brightnessFactor);
+
+      // Strong contrast increase
+      const contrast = avgBrightness < 0.15 ? 2.0 : 1.8;
       const mid = 128;
       r = Math.max(0, Math.min(255, (r - mid) * contrast + mid));
       g = Math.max(0, Math.min(255, (g - mid) * contrast + mid));
