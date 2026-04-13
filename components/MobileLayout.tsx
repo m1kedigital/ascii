@@ -36,7 +36,14 @@ export default function MobileLayout({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a0a] text-white overflow-hidden">
+    <div
+      className="flex flex-col bg-[#0a0a0a] text-white overflow-hidden"
+      style={{
+        height: "100dvh", // Use dynamic viewport height to handle mobile browser UI
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       {/* Full-screen preview with safe-area padding */}
       <div
         className="flex-1 flex items-center justify-center overflow-auto"

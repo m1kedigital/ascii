@@ -144,7 +144,7 @@ export default function AsciiConverter({
   }
 
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-1 overflow-hidden h-full">
       {/* Preview Section */}
       <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
         <AsciiPreview

@@ -42,8 +42,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${ibmPlexMono.variable} h-full`}>
-      <body className="min-h-full flex flex-col bg-[#0a0a0a] text-white antialiased">
+    <html lang="en" className={`${ibmPlexMono.variable}`} style={{ height: "100dvh" }}>
+      <body className="flex flex-col bg-[#0a0a0a] text-white antialiased" style={{ height: "100dvh", overflow: "hidden" }}>
         {children}
       </body>
     </html>

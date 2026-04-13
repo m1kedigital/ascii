@@ -167,7 +167,7 @@ export default function Home() {
   }, [processFile]);
 
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a0a] text-white">
+    <div className="flex flex-col bg-[#0a0a0a] text-white" style={{ height: "100dvh" }}>
       <input
         ref={fileInputRef}
         type="file"
