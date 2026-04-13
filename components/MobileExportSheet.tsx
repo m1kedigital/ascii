@@ -25,24 +25,27 @@ export default function MobileExportSheet({
   // Handle swipe down to close
   useEffect(() => {
     let startY = 0;
+    const content = contentRef.current;
+    if (!content) return;
+
     const handleTouchStart = (e: TouchEvent) => {
-      startY = e.touches[0].clientY;
+      startY = e.touches[0]?.clientY || 0;
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      const endY = e.changedTouches[0].clientY;
+      const endY = e.changedTouches[0]?.clientY || 0;
       const diff = endY - startY;
-      if (diff > 50 && contentRef.current?.scrollTop === 0) {
+      if (diff > 50 && content.scrollTop === 0) {
         onClose();
       }
     };
 
-    contentRef.current?.addEventListener("touchstart", handleTouchStart);
-    contentRef.current?.addEventListener("touchend", handleTouchEnd);
+    content.addEventListener("touchstart", handleTouchStart, { passive: true });
+    content.addEventListener("touchend", handleTouchEnd, { passive: true });
 
     return () => {
-      contentRef.current?.removeEventListener("touchstart", handleTouchStart);
-      contentRef.current?.removeEventListener("touchend", handleTouchEnd);
+      content.removeEventListener("touchstart", handleTouchStart);
+      content.removeEventListener("touchend", handleTouchEnd);
     };
   }, [onClose]);
 
