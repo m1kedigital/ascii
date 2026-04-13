@@ -75,10 +75,34 @@ export default function AsciiConverter({
     if (!canvasRef.current) return;
 
     const canvas = canvasRef.current;
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL(`image/${format}`);
-    link.download = `ascii-art.${format}`;
-    link.click();
+    const mimeType = `image/${format}`;
+
+    // Use toBlob for better mobile support
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          // Fallback to toDataURL
+          const link = document.createElement("a");
+          link.href = canvas.toDataURL(mimeType);
+          link.download = `ascii-art.${format}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `ascii-art.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      },
+      mimeType,
+      format === "jpg" ? 0.95 : undefined
+    );
   };
 
   if (isMobile) {

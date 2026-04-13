@@ -95,7 +95,10 @@ export default function MobileExportSheet({
 
   const handleExport = (format: "png" | "jpg") => {
     onExport(format);
-    onClose();
+    // Delay close to allow download to complete
+    setTimeout(() => {
+      onClose();
+    }, 100);
   };
 
   return (
