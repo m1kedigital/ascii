@@ -216,8 +216,8 @@ export default function Home() {
         />
       )}
 
-      {/* Footer - hidden on mobile when image is uploaded */}
-      {!imageData || !isMobile ? (
+      {/* Footer - only on drop image page */}
+      {!imageData ? (
         <div className="px-8 absolute bottom-20" style={{ left: "0", right: "0" }}>
           <div className="text-center">
             <a
