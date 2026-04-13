@@ -53,6 +53,7 @@ export default function MobileLayout({
             asciiColors={asciiColors}
             settings={settings}
             canvasRef={canvasRef}
+            isMobile={true}
           />
         </div>
       </div>
