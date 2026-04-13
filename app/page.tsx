@@ -77,25 +77,21 @@ export default function Home() {
           if (typeof event.target?.result === "string") {
             console.log("File read as data URL, length:", event.target.result.length);
 
-            // On iOS/Safari, re-encode through canvas to handle EXIF rotation and PNG transparency
+            // On iOS/Safari, re-encode through canvas to handle EXIF rotation
             const img = new Image();
             img.onload = () => {
               console.log("Image loaded:", img.width, "x", img.height);
 
-              // Create canvas and redraw to normalize
-              // This handles: EXIF rotation, PNG transparency, and mobile browser issues
+              // Create canvas and redraw to normalize (handles EXIF rotation, etc)
               const canvas = document.createElement("canvas");
               canvas.width = img.width;
               canvas.height = img.height;
               const ctx = canvas.getContext("2d");
 
               if (ctx) {
-                // Always use white background for consistency and to handle transparent PNGs
-                ctx.fillStyle = "white";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+                // Draw directly without background to preserve transparency/original colors
                 ctx.drawImage(img, 0, 0);
-                // Always convert to JPEG to avoid PNG transparency issues on mobile
+                // Convert to JPEG to avoid PNG transparency issues on mobile
                 const normalizedDataUrl = canvas.toDataURL("image/jpeg", 0.95);
                 console.log("Image re-encoded via canvas to JPEG");
                 handleImageLoad(normalizedDataUrl);
