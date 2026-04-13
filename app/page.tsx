@@ -26,6 +26,7 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageData, setImageData] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const handleImageLoad = (dataUrl: string) => {
     setImageData(dataUrl);
@@ -64,6 +65,17 @@ export default function Home() {
     };
     img.src = url;
   };
+
+  // Detect mobile breakpoint
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Handle paste from clipboard
   useEffect(() => {
@@ -230,23 +242,25 @@ export default function Home() {
         />
       )}
 
-      {/* Footer */}
-      <div className="px-8 absolute bottom-20" style={{ left: "0", right: "0" }}>
-        <div className="text-center">
-          <a
-            href="https://m1ke.digital"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#707070] text-[11px] hover:text-white transition-colors"
-            style={{ letterSpacing: "0.05em" }}
-          >
-            by{" "}
-            <span className="text-white hover:text-[#707070] transition-colors">
-              m1ke.digital
-            </span>
-          </a>
+      {/* Footer - hidden on mobile when image is uploaded */}
+      {!imageData || !isMobile ? (
+        <div className="px-8 absolute bottom-20" style={{ left: "0", right: "0" }}>
+          <div className="text-center">
+            <a
+              href="https://m1ke.digital"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#707070] text-[11px] hover:text-white transition-colors"
+              style={{ letterSpacing: "0.05em" }}
+            >
+              by{" "}
+              <span className="text-white hover:text-[#707070] transition-colors">
+                m1ke.digital
+              </span>
+            </a>
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

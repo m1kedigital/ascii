@@ -8,6 +8,7 @@ interface ControlsProps {
   onSettingsChange: (settings: AsciiSettings) => void;
   onExport: (format: "png" | "jpg") => void;
   onClear: () => void;
+  isMobile?: boolean;
 }
 
 const charsetLabels: Record<AsciiSettings["charset"], string> = {
@@ -23,6 +24,7 @@ export default function Controls({
   onSettingsChange,
   onExport,
   onClear,
+  isMobile = false,
 }: ControlsProps) {
   const colorModes: Array<AsciiSettings["colorMode"]> = useMemo(
     () => ["mono", "preserve", "invert"],
@@ -136,15 +138,15 @@ export default function Controls({
         <style>{`
           input[type="range"]::-webkit-slider-thumb {
             appearance: none;
-            width: 8px;
-            height: 8px;
+            width: ${isMobile ? "20px" : "8px"};
+            height: ${isMobile ? "20px" : "8px"};
             background: white;
             cursor: pointer;
             border: 1px solid rgba(255, 255, 255, 0.5);
           }
           input[type="range"]::-moz-range-thumb {
-            width: 8px;
-            height: 8px;
+            width: ${isMobile ? "20px" : "8px"};
+            height: ${isMobile ? "20px" : "8px"};
             background: white;
             cursor: pointer;
             border: 1px solid rgba(255, 255, 255, 0.5);

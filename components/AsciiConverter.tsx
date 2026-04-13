@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { imageToASCII } from "@/lib/ascii";
 import Controls from "./Controls";
 import AsciiPreview from "./AsciiPreview";
+import MobileLayout from "./MobileLayout";
 
 export interface AsciiSettings {
   charset: "standard" | "dense" | "blocks" | "binary" | "dots";
@@ -42,6 +43,7 @@ export default function AsciiConverter({
   });
   const [asciiData, setAsciiData] = useState<string>("");
   const [asciiColors, setAsciiColors] = useState<(string | null)[][]>([]);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Load and process image on mount or when imageData changes
   useEffect(() => {
@@ -53,6 +55,17 @@ export default function AsciiConverter({
     };
     img.src = imageData;
   }, [imageData, settings]);
+
+  // Detect mobile breakpoint
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleSettingsChange = useCallback((newSettings: AsciiSettings) => {
     setSettings(newSettings);
@@ -67,6 +80,20 @@ export default function AsciiConverter({
     link.download = `ascii-art.${format}`;
     link.click();
   };
+
+  if (isMobile) {
+    return (
+      <MobileLayout
+        asciiData={asciiData}
+        asciiColors={asciiColors}
+        settings={settings}
+        canvasRef={canvasRef}
+        onSettingsChange={handleSettingsChange}
+        onExport={handleExport}
+        onClear={onClear}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -87,6 +114,7 @@ export default function AsciiConverter({
           onSettingsChange={handleSettingsChange}
           onExport={handleExport}
           onClear={onClear}
+          isMobile={false}
         />
       </div>
     </div>
