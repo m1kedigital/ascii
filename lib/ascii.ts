@@ -83,7 +83,11 @@ export function imageToASCII(
   canvas.width = Math.max(40, Math.floor(img.width / scale));
   canvas.height = Math.max(20, Math.floor(img.height / scale));
 
-  // Draw image on canvas (no white background - preserve original colors)
+  // Draw white background first (important for PNG with transparency like screenshots)
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw image on canvas
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   let data = imageData.data;

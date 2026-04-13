@@ -39,8 +39,8 @@ export default function Home() {
     }
   };
 
-  const processFile = (file: File) => {
-    if (file && file.type.startsWith("image/")) {
+  const processFile = async (file: File) => {
+    if (file && (file.type.startsWith("image/") || file.name.toLowerCase().endsWith(".heic"))) {
       console.log("Processing file:", file.name, file.type, file.size);
 
       // Validate file size (max 10MB)
@@ -49,45 +49,71 @@ export default function Home() {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (typeof event.target?.result === "string") {
-          console.log("File read as data URL, length:", event.target.result.length);
+      try {
+        let fileToProcess = file;
 
-          // On iOS/Safari, re-encode through canvas to handle EXIF rotation
-          const img = new Image();
-          img.onload = () => {
-            console.log("Image loaded:", img.width, "x", img.height);
-
-            // Create canvas and redraw to normalize (fixes EXIF rotation issues)
-            const canvas = document.createElement("canvas");
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext("2d");
-
-            if (ctx) {
-              ctx.drawImage(img, 0, 0);
-              const normalizedDataUrl = canvas.toDataURL("image/jpeg", 0.95);
-              console.log("Image re-encoded via canvas");
-              handleImageLoad(normalizedDataUrl);
-            } else {
-              // Fallback if canvas context fails
-              handleImageLoad(event.target.result);
-            }
-          };
-
-          img.onerror = () => {
-            console.error("Failed to load image");
-            handleImageLoad(event.target.result);
-          };
-
-          img.src = event.target.result;
+        // Convert HEIC to JPEG on iPhone
+        if (file.type === "image/heic" || file.type === "image/heif" || file.name.toLowerCase().endsWith(".heic")) {
+          console.log("HEIC format detected, converting to JPEG...");
+          try {
+            const heic2anyModule = await import("heic2any");
+            const heic2anyFn = heic2anyModule.default;
+            const convertedData = await heic2anyFn({
+              blob: file,
+              toType: "image/jpeg",
+            });
+            // heic2any can return Blob or Blob[], ensure we get a single Blob
+            const blob = Array.isArray(convertedData) ? convertedData[0] : (convertedData as Blob);
+            fileToProcess = new File([blob], file.name.replace(/\.heic$/i, ".jpg"), { type: "image/jpeg" });
+            console.log("HEIC converted to JPEG successfully");
+          } catch (err) {
+            console.error("HEIC conversion failed, trying original:", err);
+            // Continue with original file if conversion fails
+          }
         }
-      };
-      reader.onerror = () => {
-        console.error("Failed to read file");
-      };
-      reader.readAsDataURL(file);
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (typeof event.target?.result === "string") {
+            console.log("File read as data URL, length:", event.target.result.length);
+
+            // On iOS/Safari, re-encode through canvas to handle EXIF rotation
+            const img = new Image();
+            img.onload = () => {
+              console.log("Image loaded:", img.width, "x", img.height);
+
+              // Create canvas and redraw to normalize (fixes EXIF rotation issues)
+              const canvas = document.createElement("canvas");
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext("2d");
+
+              if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                const normalizedDataUrl = canvas.toDataURL("image/jpeg", 0.95);
+                console.log("Image re-encoded via canvas");
+                handleImageLoad(normalizedDataUrl);
+              } else {
+                // Fallback if canvas context fails
+                handleImageLoad(event.target!.result as string);
+              }
+            };
+
+            img.onerror = () => {
+              console.error("Failed to load image");
+              handleImageLoad(event.target!.result as string);
+            };
+
+            img.src = event.target.result;
+          }
+        };
+        reader.onerror = () => {
+          console.error("Failed to read file");
+        };
+        reader.readAsDataURL(fileToProcess);
+      } catch (err) {
+        console.error("Error processing file:", err);
+      }
     }
   };
 
@@ -126,7 +152,7 @@ export default function Home() {
           if (items[i].type.startsWith("image/")) {
             const file = items[i].getAsFile();
             if (file) {
-              processFile(file);
+              void processFile(file);
             }
             break;
           }
@@ -136,14 +162,14 @@ export default function Home() {
 
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, []);
+  }, [processFile]);
 
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0a] text-white">
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         style={{ display: "none" }}
         onChange={(e) => {
           const file = e.currentTarget.files?.[0];
@@ -167,7 +193,7 @@ export default function Home() {
             setIsDragging(false);
             const file = e.dataTransfer.files[0];
             if (file) {
-              processFile(file);
+              void processFile(file);
             }
           }}
         >
