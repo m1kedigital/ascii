@@ -83,26 +83,24 @@ export function imageToASCII(
   canvas.width = Math.max(40, Math.floor(img.width / scale));
   canvas.height = Math.max(20, Math.floor(img.height / scale));
 
-  // Draw white background first (important for PNG with transparency like screenshots)
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Draw image on canvas
+  // Draw image on canvas (background handling done in page.tsx)
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   let data = imageData.data;
 
   // Analyze average brightness
   let totalBrightness = 0;
+  let pixelCount = 0;
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
     const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
     totalBrightness += brightness;
+    pixelCount++;
   }
-  const avgBrightness = totalBrightness / (data.length / 4);
-  console.log("Average image brightness:", avgBrightness.toFixed(2));
+  const avgBrightness = totalBrightness / pixelCount;
+  console.log("Canvas size:", canvas.width, "x", canvas.height, "pixels:", pixelCount, "avgBrightness:", avgBrightness.toFixed(2));
 
   // If image is too dark, enhance it aggressively
   if (avgBrightness < 0.35) {

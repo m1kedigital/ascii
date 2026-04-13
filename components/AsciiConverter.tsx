@@ -52,8 +52,15 @@ export default function AsciiConverter({
     img.onload = () => {
       try {
         console.log("Image loaded:", img.width, "x", img.height);
+        const startTime = performance.now();
         const { ascii, colors } = imageToASCII(img, settings);
-        console.log("ASCII generated, lines:", ascii.split("\n").length);
+        const endTime = performance.now();
+        console.log("ASCII generated in", (endTime - startTime).toFixed(0), "ms, lines:", ascii.split("\n").length);
+
+        if (!ascii || ascii.length === 0) {
+          console.warn("ASCII data is empty!");
+        }
+
         setAsciiData(ascii);
         setAsciiColors(colors);
       } catch (err) {
@@ -64,12 +71,12 @@ export default function AsciiConverter({
     };
 
     img.onerror = () => {
-      console.error("Failed to load image");
+      console.error("Failed to load image, error event");
       setAsciiData("");
       setAsciiColors([]);
     };
 
-    console.log("Loading image, data URL length:", imageData?.length || 0);
+    console.log("Loading image, data URL length:", imageData?.length || 0, "bytes");
     img.src = imageData;
   }, [imageData, settings]);
 
