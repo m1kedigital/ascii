@@ -102,8 +102,22 @@ export function imageToASCII(
   const avgBrightness = totalBrightness / pixelCount;
   console.log("Canvas size:", canvas.width, "x", canvas.height, "pixels:", pixelCount, "avgBrightness:", avgBrightness.toFixed(2));
 
+  // If image is completely black or nearly black, try to recover it
+  if (avgBrightness < 0.1) {
+    console.log("Image is nearly pure black, attempting inversion");
+    // Last resort: invert the image
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = 255 - data[i];
+      data[i + 1] = 255 - data[i + 1];
+      data[i + 2] = 255 - data[i + 2];
+      // Don't change alpha
+    }
+    ctx.putImageData(imageData, 0, 0);
+    imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    data = imageData.data;
+  }
   // If image is too dark, enhance it aggressively
-  if (avgBrightness < 0.35) {
+  else if (avgBrightness < 0.35) {
     console.log("Image too dark, applying aggressive enhancement");
     // Enhance dark images
     for (let i = 0; i < data.length; i += 4) {
