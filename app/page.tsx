@@ -53,8 +53,35 @@ export default function Home() {
       reader.onload = (event) => {
         if (typeof event.target?.result === "string") {
           console.log("File read as data URL, length:", event.target.result.length);
-          // Load directly without canvas processing
-          handleImageLoad(event.target.result);
+
+          // On iOS/Safari, re-encode through canvas to handle EXIF rotation
+          const img = new Image();
+          img.onload = () => {
+            console.log("Image loaded:", img.width, "x", img.height);
+
+            // Create canvas and redraw to normalize (fixes EXIF rotation issues)
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              const normalizedDataUrl = canvas.toDataURL("image/jpeg", 0.95);
+              console.log("Image re-encoded via canvas");
+              handleImageLoad(normalizedDataUrl);
+            } else {
+              // Fallback if canvas context fails
+              handleImageLoad(event.target.result);
+            }
+          };
+
+          img.onerror = () => {
+            console.error("Failed to load image");
+            handleImageLoad(event.target.result);
+          };
+
+          img.src = event.target.result;
         }
       };
       reader.onerror = () => {
