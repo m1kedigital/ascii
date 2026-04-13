@@ -72,10 +72,20 @@ export function imageToASCII(
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
 
+  // Check if image loaded properly
+  if (img.width === 0 || img.height === 0) {
+    console.error("Image has invalid dimensions:", img.width, img.height);
+    return { ascii: "", colors: [] };
+  }
+
   // Set canvas size proportional to input image (preserves aspect ratio)
   const scale = settings.cellSize / 4; // Base scale for readable ASCII
   canvas.width = Math.max(40, Math.floor(img.width / scale));
   canvas.height = Math.max(20, Math.floor(img.height / scale));
+
+  // Clear canvas with white background to ensure we can read the image
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Draw image on canvas
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);

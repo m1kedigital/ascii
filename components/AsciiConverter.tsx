@@ -48,11 +48,25 @@ export default function AsciiConverter({
   // Load and process image on mount or when imageData changes
   useEffect(() => {
     const img = new Image();
+
     img.onload = () => {
-      const { ascii, colors } = imageToASCII(img, settings);
-      setAsciiData(ascii);
-      setAsciiColors(colors);
+      try {
+        const { ascii, colors } = imageToASCII(img, settings);
+        setAsciiData(ascii);
+        setAsciiColors(colors);
+      } catch (err) {
+        console.error("Error processing image:", err);
+        setAsciiData("");
+        setAsciiColors([]);
+      }
     };
+
+    img.onerror = () => {
+      console.error("Failed to load image");
+      setAsciiData("");
+      setAsciiColors([]);
+    };
+
     img.src = imageData;
   }, [imageData, settings]);
 

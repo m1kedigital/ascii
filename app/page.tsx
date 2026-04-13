@@ -41,11 +41,35 @@ export default function Home() {
 
   const processFile = (file: File) => {
     if (file && file.type.startsWith("image/")) {
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        console.error("File too large");
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (event) => {
         if (typeof event.target?.result === "string") {
-          handleImageLoad(event.target.result);
+          // Process image through canvas like samples for consistent handling
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              handleImageLoad(canvas.toDataURL("image/jpeg"));
+            }
+          };
+          img.onerror = () => {
+            console.error("Failed to process image");
+          };
+          img.src = event.target.result;
         }
+      };
+      reader.onerror = () => {
+        console.error("Failed to read file");
       };
       reader.readAsDataURL(file);
     }
