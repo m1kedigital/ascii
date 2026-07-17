@@ -6,8 +6,12 @@ import type { AsciiSettings } from "@/lib/types";
 interface MobileExportSheetProps {
   settings: AsciiSettings;
   onSettingsChange: (settings: AsciiSettings) => void;
-  onExport: (format: "png" | "jpg") => void;
+  onExport: (format: "png" | "jpg" | "svg") => void;
   onCopyText: () => void;
+  onCopyLink: () => void;
+  onPrintPack: () => void;
+  onGifLoop: () => void;
+  exportingGif?: boolean;
   onClose: () => void;
   hasImage: boolean;
 }
@@ -17,6 +21,10 @@ export default function MobileExportSheet({
   onSettingsChange,
   onExport,
   onCopyText,
+  onCopyLink,
+  onPrintPack,
+  onGifLoop,
+  exportingGif = false,
   onClose,
   hasImage,
 }: MobileExportSheetProps) {
@@ -26,16 +34,13 @@ export default function MobileExportSheet({
     let startY = 0;
     const content = bodyRef.current;
     if (!content) return;
-
     const handleTouchStart = (e: TouchEvent) => {
       startY = e.touches[0]?.clientY || 0;
     };
-
     const handleTouchEnd = (e: TouchEvent) => {
       const endY = e.changedTouches[0]?.clientY || 0;
       if (endY - startY > 50 && content.scrollTop === 0) onClose();
     };
-
     content.addEventListener("touchstart", handleTouchStart, { passive: true });
     content.addEventListener("touchend", handleTouchEnd, { passive: true });
     return () => {
@@ -46,13 +51,13 @@ export default function MobileExportSheet({
 
   const run = (fn: () => void) => {
     fn();
-    setTimeout(onClose, 120);
+    setTimeout(onClose, 150);
   };
 
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet" style={{ maxHeight: "50dvh" }}>
+      <div className="sheet" style={{ maxHeight: "60dvh" }}>
         <div className="sheet-handle">
           <span />
         </div>
@@ -86,8 +91,8 @@ export default function MobileExportSheet({
                 type="button"
                 className="btn btn-primary"
                 disabled={!hasImage}
-                onClick={() => run(() => onExport("png"))}
                 style={{ minHeight: 44 }}
+                onClick={() => run(() => void onExport("png"))}
               >
                 Export PNG
               </button>
@@ -95,8 +100,8 @@ export default function MobileExportSheet({
                 type="button"
                 className="btn btn-secondary"
                 disabled={!hasImage}
-                onClick={() => run(() => onExport("jpg"))}
                 style={{ minHeight: 44 }}
+                onClick={() => run(() => void onExport("jpg"))}
               >
                 Export JPG
               </button>
@@ -104,10 +109,48 @@ export default function MobileExportSheet({
                 type="button"
                 className="btn btn-secondary"
                 disabled={!hasImage}
-                onClick={() => run(onCopyText)}
                 style={{ minHeight: 44 }}
+                onClick={() => run(() => void onExport("svg"))}
+              >
+                Export SVG
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={!hasImage}
+                style={{ minHeight: 44 }}
+                onClick={() => run(onCopyText)}
               >
                 Copy text
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ minHeight: 44 }}
+                onClick={() => run(() => void onCopyLink())}
+              >
+                Copy link
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={!hasImage}
+                style={{ minHeight: 44 }}
+                onClick={() => run(() => void onPrintPack())}
+              >
+                Print pack 4×
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={!hasImage || exportingGif}
+                style={{ minHeight: 44 }}
+                onClick={() => {
+                  void onGifLoop();
+                  setTimeout(onClose, 200);
+                }}
+              >
+                {exportingGif ? "GIF…" : "GIF loop"}
               </button>
             </div>
           </section>

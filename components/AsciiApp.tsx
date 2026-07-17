@@ -2,6 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { imageToASCII } from "@/lib/ascii";
+import { asciiToImageData, renderAsciiToCanvas } from "@/lib/canvas";
+import {
+  asciiToSvg,
+  canvasToBlob,
+  downloadBlob,
+  downloadDataUrl,
+  encodeGif,
+  slugify,
+} from "@/lib/export";
 import { fileToDataUrl, isImageFile, urlToDataUrl } from "@/lib/image";
 import {
   DEFAULT_SETTINGS,
@@ -10,23 +19,27 @@ import {
   type AsciiSettings,
   type SampleImage,
 } from "@/lib/types";
+import {
+  settingsFromSearchParams,
+  settingsToSearchParams,
+} from "@/lib/url-state";
 import AsciiPreview from "./AsciiPreview";
 import Controls from "./Controls";
 import Toast from "./Toast";
 import MobileControlsSheet from "./MobileControlsSheet";
 import MobileExportSheet from "./MobileExportSheet";
 import ConfirmationDialog from "./ConfirmationDialog";
+import Gallery from "./Gallery";
 
-function slugify(label: string): string {
-  return label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+function isTypingTarget(el: EventTarget | null) {
+  const tag = (el as HTMLElement)?.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
 export default function AsciiApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const urlReady = useRef(false);
 
   const [imageData, setImageData] = useState<string | null>(null);
   const [sourceLabel, setSourceLabel] = useState("");
@@ -43,35 +56,114 @@ export default function AsciiApp() {
   const [showControls, setShowControls] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
+  const [showSource, setShowSource] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [exportingGif, setExportingGif] = useState(false);
+  const [bootstrapped, setBootstrapped] = useState(false);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
-    window.setTimeout(() => setToast(null), 2200);
+    window.setTimeout(() => setToast(null), 2400);
+  }, []);
+
+  // Theme
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("ascii:theme") as "dark" | "light" | null;
+      if (saved === "light" || saved === "dark") setTheme(saved);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("ascii:theme", theme);
+    } catch {
+      /* ignore */
+    }
+  }, [theme]);
+
+  const applyLook = useCallback((lookId: string) => {
+    const preset = PRESETS.find((p) => p.id === lookId);
+    if (!preset) return;
+    setSettings((prev) => ({ ...prev, ...preset.settings }));
+    setActivePresetId(lookId);
   }, []);
 
   const loadSample = useCallback(
-    async (sample: SampleImage) => {
+    async (sample: SampleImage, withLook = true) => {
       setIsLoading(true);
       try {
         const dataUrl = await urlToDataUrl(sample.url);
         setImageData(dataUrl);
         setSourceLabel(sample.label);
         setActiveSampleId(sample.id);
+        if (withLook && sample.lookId) applyLook(sample.lookId);
       } catch {
         showToast("Could not load sample");
       } finally {
         setIsLoading(false);
       }
     },
-    [showToast]
+    [applyLook, showToast]
   );
 
-  // Result-first: load default sample on mount
+  // Bootstrap from URL once
   useEffect(() => {
-    void loadSample(SAMPLE_IMAGES[0]);
-  }, [loadSample]);
+    if (bootstrapped) return;
+    const params = new URLSearchParams(window.location.search);
+    const parsed = settingsFromSearchParams(params);
 
-  // Generate ASCII when image or settings change
+    if (params.toString()) {
+      setSettings((prev) => ({ ...prev, ...parsed.settings }));
+      if (parsed.lookId && PRESETS.some((p) => p.id === parsed.lookId)) {
+        setActivePresetId(parsed.lookId);
+      } else if (params.toString()) {
+        setActivePresetId(null);
+      }
+      setShowSource(parsed.showSource);
+    }
+
+    const sample =
+      SAMPLE_IMAGES.find((s) => s.id === parsed.sampleId) || SAMPLE_IMAGES[0];
+
+    void (async () => {
+      setIsLoading(true);
+      try {
+        const dataUrl = await urlToDataUrl(sample.url);
+        setImageData(dataUrl);
+        setSourceLabel(sample.label);
+        setActiveSampleId(sample.id);
+        if (!parsed.lookId && sample.lookId && !params.get("charset")) {
+          applyLook(sample.lookId);
+        }
+      } catch {
+        showToast("Could not load sample");
+      } finally {
+        setIsLoading(false);
+        setBootstrapped(true);
+        urlReady.current = true;
+      }
+    })();
+  }, [applyLook, bootstrapped, showToast]);
+
+  // Sync URL
+  useEffect(() => {
+    if (!urlReady.current) return;
+    const qs = settingsToSearchParams({
+      settings,
+      lookId: activePresetId,
+      sampleId: activeSampleId,
+      showSource,
+    });
+    const next = `${window.location.pathname}${qs}`;
+    window.history.replaceState(null, "", next);
+  }, [settings, activePresetId, activeSampleId, showSource]);
+
+  // Generate ASCII
   useEffect(() => {
     if (!imageData) {
       setAsciiData("");
@@ -79,8 +171,11 @@ export default function AsciiApp() {
       return;
     }
 
+    let cancelled = false;
+    setIsLoading(true);
     const img = new Image();
     img.onload = () => {
+      if (cancelled) return;
       try {
         const mobile = window.innerWidth <= 860;
         const maxCols = mobile ? 120 : undefined;
@@ -92,20 +187,24 @@ export default function AsciiApp() {
         setAsciiColors([]);
         showToast("Could not process image");
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
     img.onerror = () => {
+      if (cancelled) return;
       setIsLoading(false);
       showToast("Could not load image");
     };
     img.src = imageData;
+    return () => {
+      cancelled = true;
+    };
   }, [imageData, settings, showToast]);
 
   const processFile = useCallback(
     async (file: File) => {
       if (!isImageFile(file)) {
-        showToast("Unsupported file type");
+        showToast("Unsupported file type — use JPG, PNG, WebP, or HEIC");
         return;
       }
       setIsLoading(true);
@@ -115,7 +214,13 @@ export default function AsciiApp() {
         setSourceLabel(file.name.replace(/\.[^.]+$/, "") || "Upload");
         setActiveSampleId(null);
       } catch (err) {
-        showToast(err instanceof Error ? err.message : "Could not read file");
+        const msg =
+          err instanceof Error ? err.message : "Could not read file";
+        showToast(
+          msg.includes("10MB")
+            ? "File too large (max 10MB)"
+            : "Could not read image — try JPG/PNG"
+        );
       } finally {
         setIsLoading(false);
       }
@@ -123,7 +228,6 @@ export default function AsciiApp() {
     [showToast]
   );
 
-  // Paste image
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -140,11 +244,8 @@ export default function AsciiApp() {
     return () => window.removeEventListener("paste", onPaste);
   }, [processFile]);
 
-  // Drag & drop
   useEffect(() => {
-    const prevent = (e: DragEvent) => {
-      e.preventDefault();
-    };
+    const prevent = (e: DragEvent) => e.preventDefault();
     const onDrop = (e: DragEvent) => {
       e.preventDefault();
       const file = e.dataTransfer?.files?.[0];
@@ -164,11 +265,8 @@ export default function AsciiApp() {
   }, []);
 
   const handlePresetSelect = useCallback((presetId: string) => {
-    const preset = PRESETS.find((p) => p.id === presetId);
-    if (!preset) return;
-    setSettings((prev) => ({ ...prev, ...preset.settings }));
-    setActivePresetId(presetId);
-  }, []);
+    applyLook(presetId);
+  }, [applyLook]);
 
   const handleRandomize = useCallback(() => {
     setSettings((prev) => {
@@ -179,6 +277,7 @@ export default function AsciiApp() {
         "binary",
         "dots",
       ];
+      const dithers: AsciiSettings["dither"][] = ["none", "ordered", "floyd"];
       return {
         ...prev,
         charset: charsets[Math.floor(Math.random() * charsets.length)],
@@ -187,51 +286,137 @@ export default function AsciiApp() {
         contrast: 0.8 + Math.round(Math.random() * 12) * 0.1,
         cutDarks: Math.round(Math.random() * 12) * 0.01,
         cutLights: Math.round(Math.random() * 10) * 0.01,
+        dither: dithers[Math.floor(Math.random() * dithers.length)],
       };
     });
     setActivePresetId(null);
     showToast("Look randomized");
   }, [showToast]);
 
-  const handleExport = useCallback(
-    (format: "png" | "jpg") => {
-      if (!canvasRef.current || !asciiData) return;
-      const canvas = canvasRef.current;
-      const mimeType = format === "png" ? "image/png" : "image/jpeg";
-      const slug = slugify(sourceLabel || "art");
-      const filename = `ascii-${slug}-${settings.exportSize}x.${format}`;
+  const handleResetLook = useCallback(() => {
+    setSettings({ ...DEFAULT_SETTINGS });
+    setActivePresetId(null);
+    showToast("Look reset");
+  }, [showToast]);
 
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            const link = document.createElement("a");
-            link.href = canvas.toDataURL(
-              mimeType,
-              format === "jpg" ? 0.95 : undefined
-            );
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast(`Exported ${format.toUpperCase()}`);
-            return;
-          }
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = filename;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          showToast(`Exported ${format.toUpperCase()}`);
-        },
-        mimeType,
+  const ensureCanvas = useCallback(() => {
+    if (!canvasRef.current || !asciiData) return null;
+    renderAsciiToCanvas(
+      canvasRef.current,
+      asciiData,
+      asciiColors,
+      settings,
+      { forExport: true }
+    );
+    return canvasRef.current;
+  }, [asciiData, asciiColors, settings]);
+
+  const handleExport = useCallback(
+    async (format: "png" | "jpg" | "svg") => {
+      if (!asciiData) return;
+      const slug = slugify(sourceLabel || "art");
+
+      if (format === "svg") {
+        const svg = asciiToSvg(asciiData, asciiColors, settings);
+        const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+        downloadBlob(blob, `ascii-${slug}.svg`);
+        showToast("Exported SVG");
+        return;
+      }
+
+      const canvas = ensureCanvas();
+      if (!canvas) return;
+      const mime = format === "png" ? "image/png" : "image/jpeg";
+      const filename = `ascii-${slug}-${settings.exportSize}x.${format}`;
+      const blob = await canvasToBlob(
+        canvas,
+        mime,
         format === "jpg" ? 0.95 : undefined
       );
+      if (blob) {
+        downloadBlob(blob, filename);
+      } else {
+        downloadDataUrl(
+          canvas.toDataURL(mime, format === "jpg" ? 0.95 : undefined),
+          filename
+        );
+      }
+      showToast(`Exported ${format.toUpperCase()}`);
     },
-    [asciiData, settings.exportSize, sourceLabel, showToast]
+    [asciiData, asciiColors, ensureCanvas, settings, sourceLabel, showToast]
   );
+
+  const handlePrintPack = useCallback(async () => {
+    if (!asciiData) return;
+    const slug = slugify(sourceLabel || "art");
+    const printSettings: AsciiSettings = {
+      ...settings,
+      exportSize: 4,
+      background: settings.background === "transparent" ? "transparent" : settings.background,
+      credit: settings.credit,
+    };
+    const canvas = document.createElement("canvas");
+    renderAsciiToCanvas(canvas, asciiData, asciiColors, printSettings, {
+      forExport: true,
+    });
+    const blob = await canvasToBlob(canvas, "image/png");
+    if (blob) downloadBlob(blob, `ascii-${slug}-print-4x.png`);
+    else
+      downloadDataUrl(canvas.toDataURL("image/png"), `ascii-${slug}-print-4x.png`);
+    showToast("Print pack · 4× PNG");
+  }, [asciiData, asciiColors, settings, sourceLabel, showToast]);
+
+  const handleGifLoop = useCallback(async () => {
+    if (!imageData || exportingGif) return;
+    setExportingGif(true);
+    showToast("Rendering GIF loop…");
+    try {
+      const img = new Image();
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej(new Error("img"));
+        img.src = imageData;
+      });
+
+      const densities = [16, 13, 10, 8, 6, 8, 10, 13];
+      const frames: ImageData[] = [];
+      const mobile = window.innerWidth <= 860;
+      const maxCols = mobile ? 90 : 140;
+
+      for (const cellSize of densities) {
+        const s: AsciiSettings = { ...settings, cellSize, exportSize: 1 };
+        const { ascii, colors } = imageToASCII(img, s, maxCols);
+        frames.push(asciiToImageData(ascii, colors, s, 420));
+      }
+
+      // Normalize frame sizes
+      const w = frames[0].width;
+      const h = frames[0].height;
+      const normalized = frames.map((f) => {
+        if (f.width === w && f.height === h) return f;
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const ctx = c.getContext("2d")!;
+        const tmp = document.createElement("canvas");
+        tmp.width = f.width;
+        tmp.height = f.height;
+        tmp.getContext("2d")!.putImageData(f, 0, 0);
+        ctx.fillStyle = settings.background === "white" ? "#fff" : "#000";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(tmp, 0, 0, w, h);
+        return ctx.getImageData(0, 0, w, h);
+      });
+
+      const blob = await encodeGif(normalized, 12);
+      downloadBlob(blob, `ascii-${slugify(sourceLabel || "art")}-loop.gif`);
+      showToast("Exported GIF loop");
+    } catch {
+      showToast("GIF export failed");
+    } finally {
+      setExportingGif(false);
+    }
+  }, [exportingGif, imageData, settings, sourceLabel, showToast]);
 
   const handleCopyText = useCallback(async () => {
     if (!asciiData) return;
@@ -243,24 +428,89 @@ export default function AsciiApp() {
     }
   }, [asciiData, showToast]);
 
-  // Keyboard: S = PNG snapshot
+  const handleCopyLink = useCallback(async () => {
+    const qs = settingsToSearchParams({
+      settings,
+      lookId: activePresetId,
+      sampleId: activeSampleId,
+      showSource,
+    });
+    const url = `${window.location.origin}${window.location.pathname}${qs}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Link copied");
+    } catch {
+      showToast("Could not copy link");
+    }
+  }, [activePresetId, activeSampleId, settings, showSource, showToast]);
+
+  // Keyboard map
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "s" && e.key !== "S") return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      e.preventDefault();
-      handleExport("png");
+      if (isTypingTarget(e.target)) return;
+      const k = e.key.toLowerCase();
+
+      if (k >= "1" && k <= "6") {
+        const idx = parseInt(k, 10) - 1;
+        if (PRESETS[idx]) {
+          e.preventDefault();
+          applyLook(PRESETS[idx].id);
+        }
+        return;
+      }
+
+      switch (k) {
+        case "s":
+          e.preventDefault();
+          void handleExport("png");
+          break;
+        case "c":
+          e.preventDefault();
+          void handleCopyText();
+          break;
+        case "r":
+          e.preventDefault();
+          handleRandomize();
+          break;
+        case "v":
+          e.preventDefault();
+          setShowSource((s) => !s);
+          break;
+        case "l":
+          e.preventDefault();
+          void handleCopyLink();
+          break;
+        case "t":
+          e.preventDefault();
+          setTheme((t) => (t === "dark" ? "light" : "dark"));
+          break;
+        case "g":
+          e.preventDefault();
+          setShowGallery(true);
+          break;
+        default:
+          break;
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleExport]);
+  }, [applyLook, handleCopyLink, handleCopyText, handleExport, handleRandomize]);
 
   const handleClear = useCallback(() => {
     setShowClearConfirm(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    void loadSample(SAMPLE_IMAGES[0]);
+    void loadSample(SAMPLE_IMAGES[0], false);
   }, [loadSample]);
+
+  const handleGallerySelect = useCallback(
+    (sampleId: string, lookId: string) => {
+      const sample = SAMPLE_IMAGES.find((s) => s.id === sampleId);
+      if (!sample) return;
+      applyLook(lookId);
+      void loadSample(sample, false);
+    },
+    [applyLook, loadSample]
+  );
 
   const openUpload = () => fileInputRef.current?.click();
   const hasImage = Boolean(imageData && asciiData);
@@ -271,12 +521,20 @@ export default function AsciiApp() {
     sourceLabel,
     activeSampleId,
     activePresetId,
+    showSource,
+    onShowSourceChange: setShowSource,
     onUploadClick: openUpload,
-    onSampleSelect: (s: SampleImage) => void loadSample(s),
+    onSampleSelect: (s: SampleImage) => void loadSample(s, true),
     onPresetSelect: handlePresetSelect,
     onExport: handleExport,
     onCopyText: handleCopyText,
+    onCopyLink: handleCopyLink,
     onRandomize: handleRandomize,
+    onResetLook: handleResetLook,
+    onPrintPack: handlePrintPack,
+    onGifLoop: handleGifLoop,
+    onOpenGallery: () => setShowGallery(true),
+    exportingGif,
     hasImage,
   };
 
@@ -295,6 +553,24 @@ export default function AsciiApp() {
 
       <div className="app-shell">
         <main className="app-stage">
+          <div className="stage-toolbar">
+            <button
+              type="button"
+              className={`tool-btn${showSource ? " active" : ""}`}
+              onClick={() => setShowSource((s) => !s)}
+              title="Split view (V)"
+            >
+              Split
+            </button>
+            <button
+              type="button"
+              className="tool-btn"
+              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+              title="Theme (T)"
+            >
+              {theme === "dark" ? "Light" : "Dark"}
+            </button>
+          </div>
           <AsciiPreview
             asciiData={asciiData}
             asciiColors={asciiColors}
@@ -302,6 +578,8 @@ export default function AsciiApp() {
             canvasRef={canvasRef}
             sourceLabel={sourceLabel}
             isLoading={isLoading}
+            showSource={showSource}
+            imageData={imageData}
           />
         </main>
 
@@ -355,6 +633,10 @@ export default function AsciiApp() {
           onSettingsChange={handleSettingsChange}
           onExport={handleExport}
           onCopyText={handleCopyText}
+          onCopyLink={handleCopyLink}
+          onPrintPack={handlePrintPack}
+          onGifLoop={handleGifLoop}
+          exportingGif={exportingGif}
           onClose={() => setShowExport(false)}
           hasImage={hasImage}
         />
@@ -369,6 +651,13 @@ export default function AsciiApp() {
           onConfirm={handleClear}
           onCancel={() => setShowClearConfirm(false)}
           isDangerous
+        />
+      )}
+
+      {showGallery && (
+        <Gallery
+          onSelect={handleGallerySelect}
+          onClose={() => setShowGallery(false)}
         />
       )}
 

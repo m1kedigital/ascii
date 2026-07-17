@@ -1,14 +1,5 @@
-import type { AsciiSettings } from "@/lib/types";
+import { resolveCharset, type AsciiSettings } from "@/lib/types";
 
-const CHARSETS = {
-  standard: "`·.:-=+*#%@",
-  dense: "░▒▓█",
-  blocks: "░▒▓█",
-  binary: "01",
-  dots: "·•●",
-};
-
-// Convert RGB to HSL
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   r /= 255;
   g /= 255;
@@ -38,7 +29,6 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   return [h, s, l];
 }
 
-// Convert HSL to RGB
 function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   let r, g, b;
 
@@ -64,179 +54,197 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 }
 
+// Bayer 8×8 ordered dither matrix, normalized 0–1 thresholds
+const BAYER8 = [
+  [0, 32, 8, 40, 2, 34, 10, 42],
+  [48, 16, 56, 24, 50, 18, 58, 26],
+  [12, 44, 4, 36, 14, 46, 6, 38],
+  [60, 28, 52, 20, 62, 30, 54, 22],
+  [3, 35, 11, 43, 1, 33, 9, 41],
+  [51, 19, 59, 27, 49, 17, 57, 25],
+  [15, 47, 7, 39, 13, 45, 5, 37],
+  [63, 31, 55, 23, 61, 29, 53, 21],
+].map((row) => row.map((v) => (v + 0.5) / 64));
+
+function applyTone(
+  brightness: number,
+  settings: AsciiSettings
+): number {
+  let b = brightness;
+  if (b < settings.cutDarks) b = settings.cutDarks;
+  if (b > 1 - settings.cutLights) b = 1 - settings.cutLights;
+  b = Math.max(0, Math.min(1, b));
+  b = Math.pow(b, 1 / settings.contrast);
+  return Math.max(0, Math.min(1, b));
+}
+
 export function imageToASCII(
   img: HTMLImageElement,
   settings: AsciiSettings,
   maxColumns?: number
 ): { ascii: string; colors: (string | null)[][] } {
-  // Create canvas to read image data
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
 
-  // Check if image loaded properly
   if (img.width === 0 || img.height === 0) {
-    console.error("Image has invalid dimensions:", img.width, img.height);
     return { ascii: "", colors: [] };
   }
 
-  // Set canvas size proportional to input image (preserves aspect ratio)
-  const scale = settings.cellSize / 4; // Base scale for readable ASCII
+  const scale = settings.cellSize / 4;
   canvas.width = Math.max(40, Math.floor(img.width / scale));
   canvas.height = Math.max(20, Math.floor(img.height / scale));
 
-  // Limit columns for mobile to keep canvas renderable
   if (maxColumns && canvas.width > maxColumns) {
     const ratio = maxColumns / canvas.width;
     canvas.height = Math.max(20, Math.floor(canvas.height * ratio));
     canvas.width = maxColumns;
   }
 
-  // Draw image on canvas (background handling done in page.tsx)
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   let data = imageData.data;
 
-  // Analyze average brightness
   let totalBrightness = 0;
   let pixelCount = 0;
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-    const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
-    totalBrightness += brightness;
+    totalBrightness += (r * 0.299 + g * 0.587 + b * 0.114) / 255;
     pixelCount++;
   }
   const avgBrightness = totalBrightness / pixelCount;
 
-  // If image is completely black or nearly black, try to recover it
   if (avgBrightness < 0.15) {
-    // Last resort: invert the image
     for (let i = 0; i < data.length; i += 4) {
       data[i] = 255 - data[i];
       data[i + 1] = 255 - data[i + 1];
       data[i + 2] = 255 - data[i + 2];
-      // Don't change alpha
     }
     ctx.putImageData(imageData, 0, 0);
     imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     data = imageData.data;
-  }
-  // If image is too dark, enhance it aggressively
-  else if (avgBrightness < 0.35) {
-    // Enhance dark images
+  } else if (avgBrightness < 0.35) {
     for (let i = 0; i < data.length; i += 4) {
       let r = data[i];
       let g = data[i + 1];
       let b = data[i + 2];
       const a = data[i + 3];
-
-      // Skip fully transparent pixels
       if (a === 0) continue;
-
-      // Aggressive brightness boost for very dark images
-      const brightnessFactor = avgBrightness < 0.15 ? 2.0 : 1.6;
+      const brightnessFactor = 1.6;
       r = Math.min(255, r * brightnessFactor);
       g = Math.min(255, g * brightnessFactor);
       b = Math.min(255, b * brightnessFactor);
-
-      // Strong contrast increase
-      const contrast = avgBrightness < 0.15 ? 2.0 : 1.8;
+      const contrast = 1.8;
       const mid = 128;
       r = Math.max(0, Math.min(255, (r - mid) * contrast + mid));
       g = Math.max(0, Math.min(255, (g - mid) * contrast + mid));
       b = Math.max(0, Math.min(255, (b - mid) * contrast + mid));
-
       data[i] = r;
       data[i + 1] = g;
       data[i + 2] = b;
     }
-
-    // Put enhanced data back
     ctx.putImageData(imageData, 0, 0);
     imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     data = imageData.data;
   }
 
-  const charset = CHARSETS[settings.charset];
+  const charset = resolveCharset(settings);
   const width = canvas.width;
   const height = canvas.height;
-
-  // Vertical step based on tileAspect (how many rows per ASCII line)
   const verticalStep = 1 / settings.tileAspect;
+  const levels = charset.length;
 
-  let ascii = "";
-  const colors: (string | null)[][] = [];
+  // Precompute brightness grid for dither (row-major at sampling positions)
+  type Cell = { b: number; r: number; g: number; bl: number; a: number };
+  const rowIndices: number[] = [];
+  for (let i = 0; i < height; i += verticalStep) rowIndices.push(Math.floor(i));
+  const nRows = rowIndices.length;
+  const nCols = width;
 
-  for (let i = 0; i < height; i += verticalStep) {
-    const colorRow: (string | null)[] = [];
-    const rowIdx = Math.floor(i);
-
-    for (let j = 0; j < width; j++) {
+  const cells: Cell[][] = [];
+  for (let ry = 0; ry < nRows; ry++) {
+    const rowIdx = rowIndices[ry];
+    const row: Cell[] = [];
+    for (let j = 0; j < nCols; j++) {
       const pixelIndex = (rowIdx * width + j) * 4;
       const r = data[pixelIndex];
       const g = data[pixelIndex + 1];
       const b = data[pixelIndex + 2];
       const a = data[pixelIndex + 3];
+      let brightness = ((r * 0.299 + g * 0.587 + b * 0.114) / 255) * (a / 255);
+      brightness = applyTone(brightness, settings);
+      row.push({ b: brightness, r, g, bl: b, a });
+    }
+    cells.push(row);
+  }
 
-      // Calculate brightness (0-1)
-      let brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+  // Floyd–Steinberg on brightness grid
+  if (settings.dither === "floyd") {
+    for (let y = 0; y < nRows; y++) {
+      for (let x = 0; x < nCols; x++) {
+        const old = cells[y][x].b;
+        const q = Math.round(old * (levels - 1)) / (levels - 1);
+        const err = old - q;
+        cells[y][x].b = q;
+        if (x + 1 < nCols) cells[y][x + 1].b = clamp01(cells[y][x + 1].b + err * (7 / 16));
+        if (y + 1 < nRows) {
+          if (x > 0) cells[y + 1][x - 1].b = clamp01(cells[y + 1][x - 1].b + err * (3 / 16));
+          cells[y + 1][x].b = clamp01(cells[y + 1][x].b + err * (5 / 16));
+          if (x + 1 < nCols)
+            cells[y + 1][x + 1].b = clamp01(cells[y + 1][x + 1].b + err * (1 / 16));
+        }
+      }
+    }
+  }
 
-      // Apply alpha channel
-      brightness = brightness * (a / 255);
+  let ascii = "";
+  const colors: (string | null)[][] = [];
 
-      // Apply cut darks (lift shadows)
-      if (brightness < settings.cutDarks) {
-        brightness = settings.cutDarks;
+  for (let ry = 0; ry < nRows; ry++) {
+    const colorRow: (string | null)[] = [];
+    for (let j = 0; j < nCols; j++) {
+      const cell = cells[ry][j];
+      let brightness = cell.b;
+
+      if (settings.dither === "ordered") {
+        const t = BAYER8[ry % 8][j % 8];
+        // Bias continuous tone into nearest level with ordered threshold
+        const scaled = brightness * (levels - 1);
+        const base = Math.floor(scaled);
+        const frac = scaled - base;
+        const idx = Math.min(levels - 1, base + (frac > t ? 1 : 0));
+        brightness = idx / (levels - 1);
       }
 
-      // Apply cut lights (clip highlights)
-      if (brightness > 1 - settings.cutLights) {
-        brightness = 1 - settings.cutLights;
-      }
+      const charIndex = Math.min(
+        levels - 1,
+        Math.max(0, Math.floor(brightness * (levels - 1)))
+      );
+      ascii += charset[charIndex];
 
-      // Remap brightness to 0-1 range
-      brightness = Math.max(0, Math.min(1, brightness));
-
-      // Apply contrast
-      brightness = Math.pow(brightness, 1 / settings.contrast);
-
-      // Final clamp
-      brightness = Math.max(0, Math.min(1, brightness));
-
-      // Select character based on brightness
-      const charIndex = Math.floor(brightness * (charset.length - 1));
-      const char = charset[charIndex];
-
-      ascii += char;
-
-      // Store color based on mode
       let color: string | null = null;
+      const { r, g, bl: b, a } = cell;
       if (settings.colorMode === "preserve" && a > 0) {
-        // Calculate luminance for contrast checking
         const luminance = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
         let adjustedR = r;
         let adjustedG = g;
         let adjustedB = b;
 
-        if (settings.background === "black" || settings.background === "transparent") {
-          // Ensure minimum luminance of 0.35 for readability on dark background
+        if (
+          settings.background === "black" ||
+          settings.background === "transparent"
+        ) {
           if (luminance < 0.35) {
-            // Convert to HSL, boost L, convert back
             const [h, s, l] = rgbToHsl(r, g, b);
-            const boostedL = Math.max(l, 0.35);
-            [adjustedR, adjustedG, adjustedB] = hslToRgb(h, s, boostedL);
+            [adjustedR, adjustedG, adjustedB] = hslToRgb(h, s, Math.max(l, 0.35));
           }
         } else if (settings.background === "white") {
-          // Ensure maximum luminance of 0.75 for readability on light background
           if (luminance > 0.75) {
-            // Convert to HSL, reduce L, convert back
             const [h, s, l] = rgbToHsl(r, g, b);
-            const cappedL = Math.min(l, 0.75);
-            [adjustedR, adjustedG, adjustedB] = hslToRgb(h, s, cappedL);
+            [adjustedR, adjustedG, adjustedB] = hslToRgb(h, s, Math.min(l, 0.75));
           }
         }
-
         color = `rgb(${adjustedR}, ${adjustedG}, ${adjustedB})`;
       } else if (settings.colorMode === "invert" && a > 0) {
         color = `rgb(${255 - r}, ${255 - g}, ${255 - b})`;
@@ -244,10 +252,13 @@ export function imageToASCII(
 
       colorRow.push(color);
     }
-
     ascii += "\n";
     colors.push(colorRow);
   }
 
   return { ascii, colors };
+}
+
+function clamp01(v: number) {
+  return Math.max(0, Math.min(1, v));
 }

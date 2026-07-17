@@ -10,47 +10,39 @@ interface MobileControlsSheetProps {
   sourceLabel: string;
   activeSampleId: string | null;
   activePresetId: string | null;
+  showSource: boolean;
+  onShowSourceChange: (v: boolean) => void;
   onUploadClick: () => void;
   onSampleSelect: (sample: SampleImage) => void;
   onPresetSelect: (presetId: string) => void;
-  onExport: (format: "png" | "jpg") => void;
+  onExport: (format: "png" | "jpg" | "svg") => void;
   onCopyText: () => void;
+  onCopyLink: () => void;
   onRandomize: () => void;
+  onResetLook: () => void;
+  onPrintPack: () => void;
+  onGifLoop: () => void;
+  onOpenGallery: () => void;
+  exportingGif?: boolean;
   hasImage: boolean;
   onClose: () => void;
 }
 
-export default function MobileControlsSheet({
-  settings,
-  onSettingsChange,
-  sourceLabel,
-  activeSampleId,
-  activePresetId,
-  onUploadClick,
-  onSampleSelect,
-  onPresetSelect,
-  onExport,
-  onCopyText,
-  onRandomize,
-  hasImage,
-  onClose,
-}: MobileControlsSheetProps) {
+export default function MobileControlsSheet(props: MobileControlsSheetProps) {
+  const { onClose } = props;
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let startY = 0;
     const content = bodyRef.current;
     if (!content) return;
-
     const handleTouchStart = (e: TouchEvent) => {
       startY = e.touches[0]?.clientY || 0;
     };
-
     const handleTouchEnd = (e: TouchEvent) => {
       const endY = e.changedTouches[0]?.clientY || 0;
       if (endY - startY > 50 && content.scrollTop === 0) onClose();
     };
-
     content.addEventListener("touchstart", handleTouchStart, { passive: true });
     content.addEventListener("touchend", handleTouchEnd, { passive: true });
     return () => {
@@ -73,25 +65,7 @@ export default function MobileControlsSheet({
           </button>
         </div>
         <div className="sheet-body" ref={bodyRef}>
-          <Controls
-            settings={settings}
-            onSettingsChange={onSettingsChange}
-            sourceLabel={sourceLabel}
-            activeSampleId={activeSampleId}
-            activePresetId={activePresetId}
-            onUploadClick={() => {
-              onUploadClick();
-            }}
-            onSampleSelect={(s) => {
-              onSampleSelect(s);
-            }}
-            onPresetSelect={onPresetSelect}
-            onExport={onExport}
-            onCopyText={onCopyText}
-            onRandomize={onRandomize}
-            hasImage={hasImage}
-            compact
-          />
+          <Controls {...props} compact />
         </div>
       </div>
     </>
