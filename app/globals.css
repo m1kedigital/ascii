@@ -834,6 +834,18 @@ html[data-theme="light"] .tool-btn {
   border-color: var(--border-hi);
 }
 
+.tool-btn-icon {
+  width: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-btn-icon svg {
+  display: block;
+}
+
 .app-stage-canvas-wrap.split {
   display: grid;
   grid-template-columns: 1fr 1fr;
