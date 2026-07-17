@@ -1,51 +1,45 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useEffect } from "react";
-import { AsciiSettings } from "./AsciiConverter";
+import { useEffect, useRef } from "react";
+import type { AsciiSettings, SampleImage } from "@/lib/types";
+import Controls from "./Controls";
 
 interface MobileControlsSheetProps {
   settings: AsciiSettings;
   onSettingsChange: (settings: AsciiSettings) => void;
+  sourceLabel: string;
+  activeSampleId: string | null;
+  activePresetId: string | null;
+  onUploadClick: () => void;
+  onSampleSelect: (sample: SampleImage) => void;
+  onPresetSelect: (presetId: string) => void;
+  onExport: (format: "png" | "jpg") => void;
+  onCopyText: () => void;
+  onRandomize: () => void;
+  hasImage: boolean;
   onClose: () => void;
 }
-
-const charsetLabels: Record<AsciiSettings["charset"], string> = {
-  standard: "STANDARD",
-  dense: "DENSE",
-  blocks: "BLOCKS",
-  binary: "BINARY",
-  dots: "DOTS",
-};
 
 export default function MobileControlsSheet({
   settings,
   onSettingsChange,
+  sourceLabel,
+  activeSampleId,
+  activePresetId,
+  onUploadClick,
+  onSampleSelect,
+  onPresetSelect,
+  onExport,
+  onCopyText,
+  onRandomize,
+  hasImage,
   onClose,
 }: MobileControlsSheetProps) {
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const colorModes: Array<AsciiSettings["colorMode"]> = useMemo(
-    () => ["mono", "preserve", "invert"],
-    []
-  );
-  const backgroundModes: Array<AsciiSettings["background"]> = useMemo(
-    () => ["white", "black", "transparent"],
-    []
-  );
+  const bodyRef = useRef<HTMLDivElement>(null);
 
-  const charsetOptions = useMemo(
-    () =>
-      Object.entries(charsetLabels).map(([id, label]) => ({
-        id,
-        label,
-      })),
-    []
-  );
-
-  // Handle swipe down to close
   useEffect(() => {
     let startY = 0;
-    const content = contentRef.current;
+    const content = bodyRef.current;
     if (!content) return;
 
     const handleTouchStart = (e: TouchEvent) => {
@@ -54,286 +48,49 @@ export default function MobileControlsSheet({
 
     const handleTouchEnd = (e: TouchEvent) => {
       const endY = e.changedTouches[0]?.clientY || 0;
-      const diff = endY - startY;
-      if (diff > 50 && content.scrollTop === 0) {
-        onClose();
-      }
+      if (endY - startY > 50 && content.scrollTop === 0) onClose();
     };
 
     content.addEventListener("touchstart", handleTouchStart, { passive: true });
     content.addEventListener("touchend", handleTouchEnd, { passive: true });
-
     return () => {
       content.removeEventListener("touchstart", handleTouchStart);
       content.removeEventListener("touchend", handleTouchEnd);
     };
   }, [onClose]);
 
-  const SegmentedControl = useCallback(
-    ({
-      label,
-      value,
-      options,
-      onChange,
-      dividerAbove,
-    }: {
-      label: string;
-      value: string;
-      options: Array<{ id: string; label: string }>;
-      onChange: (id: string) => void;
-      dividerAbove?: boolean;
-    }) => (
-      <div style={dividerAbove ? { paddingTop: "16px", borderTop: "1px solid #1a1a1a" } : { paddingTop: "16px" }}>
-        <div
-          className="text-xs font-medium tracking-[0.1em] uppercase text-[#707070] mb-2"
-          style={{ letterSpacing: "0.1em", marginBottom: "8px" }}
-        >
-          {label}
-        </div>
-        <div className="flex flex-col gap-1">
-          {options.map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => onChange(opt.id)}
-              className={`text-xs font-medium tracking-widest uppercase transition-all ${
-                value === opt.id
-                  ? "bg-white text-black"
-                  : "bg-transparent text-[#707070] hover:bg-[rgba(255,255,255,0.05)]"
-              }`}
-              style={{
-                padding: "12px",
-                minHeight: "44px",
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    ),
-    []
-  );
-
-  const Slider = useCallback(
-    ({
-      label,
-      value,
-      min,
-      max,
-      step,
-      onChange,
-      formatValue,
-    }: {
-      label: string;
-      value: number;
-      min: number;
-      max: number;
-      step?: number;
-      onChange: (val: number) => void;
-      formatValue: (val: number) => string;
-    }) => (
-      <div style={{ paddingTop: "16px" }}>
-        <div className="flex justify-between items-baseline" style={{ marginBottom: "12px" }}>
-          <div
-            className="text-xs font-medium tracking-[0.1em] uppercase text-[#707070]"
-            style={{ letterSpacing: "0.1em" }}
-          >
-            {label}
-          </div>
-          <div className="text-xs font-medium text-white text-right font-mono">
-            {formatValue(value)}
-          </div>
-        </div>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step || "1"}
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="w-full h-1 appearance-none cursor-pointer"
-          style={{
-            background: "white",
-            WebkitAppearance: "none",
-            touchAction: "none",
-          }}
-        />
-        <style>{`
-          input[type="range"]::-webkit-slider-thumb {
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            background: white;
-            cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.5);
-          }
-          input[type="range"]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            background: white;
-            cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            border-radius: 0;
-          }
-        `}</style>
-      </div>
-    ),
-    []
-  );
-
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black bg-opacity-40 z-40"
-        onClick={onClose}
-      />
-
-      {/* Bottom Sheet */}
-      <div
-        ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] rounded-t-2xl z-50 flex flex-col max-h-[70vh]"
-        style={{
-          paddingTop: "16px",
-        }}
-      >
-        {/* Drag Handle */}
-        <div className="flex justify-center pb-4">
-          <div
-            style={{
-              width: "40px",
-              height: "4px",
-              backgroundColor: "rgba(255,255,255,0.3)",
-              borderRadius: "2px",
-            }}
-          />
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet">
+        <div className="sheet-handle">
+          <span />
         </div>
-
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 flex items-center justify-center w-8 h-8 text-xl text-[#707070] hover:text-white transition-colors"
-          style={{ minHeight: "44px", minWidth: "44px" }}
-        >
-          ×
-        </button>
-
-        {/* Content */}
-        <div
-          ref={contentRef}
-          className="flex-1 overflow-y-auto px-6 pb-6"
-          style={{
-            paddingLeft: "24px",
-            paddingRight: "24px",
-            paddingBottom: "24px",
-          }}
-        >
-          {/* Charset - Segmented Control */}
-          <SegmentedControl
-            label="CHARACTER SET"
-            value={settings.charset}
-            options={charsetOptions}
-            onChange={(id) =>
-              onSettingsChange({
-                ...settings,
-                charset: id as AsciiSettings["charset"],
-              })
-            }
-          />
-
-          {/* Density Slider */}
-          <Slider
-            label="DENSITY"
-            value={settings.cellSize}
-            min={4}
-            max={20}
-            onChange={(val) => onSettingsChange({ ...settings, cellSize: val })}
-            formatValue={(val) => `${val}px`}
-          />
-
-          {/* Tile Aspect Slider */}
-          <Slider
-            label="TILE ASPECT"
-            value={settings.tileAspect}
-            min={0.4}
-            max={1.2}
-            step={0.05}
-            onChange={(val) => onSettingsChange({ ...settings, tileAspect: val })}
-            formatValue={(val) => val.toFixed(2)}
-          />
-
-          {/* Contrast Slider */}
-          <Slider
-            label="CONTRAST"
-            value={settings.contrast}
-            min={0.5}
-            max={2}
-            step={0.1}
-            onChange={(val) => onSettingsChange({ ...settings, contrast: val })}
-            formatValue={(val) => `${val.toFixed(1)}x`}
-          />
-
-          {/* Cut Darks Slider */}
-          <Slider
-            label="CUT DARKS"
-            value={settings.cutDarks}
-            min={0}
-            max={0.3}
-            step={0.01}
-            onChange={(val) => onSettingsChange({ ...settings, cutDarks: val })}
-            formatValue={(val) => val.toFixed(2)}
-          />
-
-          {/* Cut Lights Slider */}
-          <Slider
-            label="CUT LIGHTS"
-            value={settings.cutLights}
-            min={0}
-            max={0.3}
-            step={0.01}
-            onChange={(val) => onSettingsChange({ ...settings, cutLights: val })}
-            formatValue={(val) => val.toFixed(2)}
-          />
-
-          {/* Color Mode - Segmented Control with divider */}
-          <SegmentedControl
-            label="COLOR MODE"
-            value={settings.colorMode}
-            options={useMemo(
-              () =>
-                colorModes.map((mode) => ({
-                  id: mode,
-                  label: mode.toUpperCase(),
-                })),
-              [colorModes]
-            )}
-            onChange={(id) =>
-              onSettingsChange({
-                ...settings,
-                colorMode: id as AsciiSettings["colorMode"],
-              })
-            }
-            dividerAbove={true}
-          />
-
-          {/* Background - Segmented Control */}
-          <SegmentedControl
-            label="BACKGROUND"
-            value={settings.background}
-            options={useMemo(
-              () =>
-                backgroundModes.map((mode) => ({
-                  id: mode,
-                  label: mode.toUpperCase(),
-                })),
-              [backgroundModes]
-            )}
-            onChange={(id) =>
-              onSettingsChange({
-                ...settings,
-                background: id as AsciiSettings["background"],
-              })
-            }
+        <div className="sheet-header">
+          <h2>Controls</h2>
+          <button type="button" className="sheet-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div className="sheet-body" ref={bodyRef}>
+          <Controls
+            settings={settings}
+            onSettingsChange={onSettingsChange}
+            sourceLabel={sourceLabel}
+            activeSampleId={activeSampleId}
+            activePresetId={activePresetId}
+            onUploadClick={() => {
+              onUploadClick();
+            }}
+            onSampleSelect={(s) => {
+              onSampleSelect(s);
+            }}
+            onPresetSelect={onPresetSelect}
+            onExport={onExport}
+            onCopyText={onCopyText}
+            onRandomize={onRandomize}
+            hasImage={hasImage}
+            compact
           />
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { AsciiSettings } from "@/components/AsciiConverter";
+import type { AsciiSettings } from "@/lib/types";
 
 const CHARSETS = {
   standard: "`·.:-=+*#%@",
@@ -108,11 +108,9 @@ export function imageToASCII(
     pixelCount++;
   }
   const avgBrightness = totalBrightness / pixelCount;
-  console.log("Canvas size:", canvas.width, "x", canvas.height, "pixels:", pixelCount, "avgBrightness:", avgBrightness.toFixed(2));
 
   // If image is completely black or nearly black, try to recover it
   if (avgBrightness < 0.15) {
-    console.log("Image is nearly pure black, attempting inversion");
     // Last resort: invert the image
     for (let i = 0; i < data.length; i += 4) {
       data[i] = 255 - data[i];
@@ -126,7 +124,6 @@ export function imageToASCII(
   }
   // If image is too dark, enhance it aggressively
   else if (avgBrightness < 0.35) {
-    console.log("Image too dark, applying aggressive enhancement");
     // Enhance dark images
     for (let i = 0; i < data.length; i += 4) {
       let r = data[i];
@@ -172,14 +169,14 @@ export function imageToASCII(
   const colors: (string | null)[][] = [];
 
   for (let i = 0; i < height; i += verticalStep) {
-    let colorRow: (string | null)[] = [];
+    const colorRow: (string | null)[] = [];
     const rowIdx = Math.floor(i);
 
     for (let j = 0; j < width; j++) {
       const pixelIndex = (rowIdx * width + j) * 4;
-      let r = data[pixelIndex];
-      let g = data[pixelIndex + 1];
-      let b = data[pixelIndex + 2];
+      const r = data[pixelIndex];
+      const g = data[pixelIndex + 1];
+      const b = data[pixelIndex + 2];
       const a = data[pixelIndex + 3];
 
       // Calculate brightness (0-1)

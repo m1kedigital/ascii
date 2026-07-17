@@ -1,65 +1,105 @@
 import sharp from "sharp";
 import { writeFileSync } from "fs";
-import { dirname } from "path";
+import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const appDir = join(__dirname, "../app");
 
-// Generate apple-icon.png (180x180)
+function blockGridSvg(size, bg = "#0a0a0c", fg = "#f2f2f3") {
+  const pad = size * 0.18;
+  const gap = size * 0.06;
+  const cell = (size - pad * 2 - gap * 2) / 3;
+  const opacities = [
+    [1, 0.55, 0.25],
+    [0.55, 1, 0.55],
+    [0.25, 0.55, 1],
+  ];
+  let cells = "";
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      const x = pad + col * (cell + gap);
+      const y = pad + row * (cell + gap);
+      const o = opacities[row][col];
+      cells += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}" fill="${fg}" opacity="${o}"/>`;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+  <rect width="${size}" height="${size}" fill="${bg}"/>
+  ${cells}
+</svg>`;
+}
+
 async function generateAppleIcon() {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
-      <rect width="180" height="180" fill="#0a0a0a"/>
-      <text x="90" y="95" font-family="monospace" font-size="130" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">▓</text>
-    </svg>
-  `;
-
-  await sharp(Buffer.from(svg)).png().toFile(`${__dirname}/../app/apple-icon.png`);
-  console.log("✓ Generated apple-icon.png");
+  const svg = blockGridSvg(180);
+  await sharp(Buffer.from(svg)).png().toFile(join(appDir, "apple-icon.png"));
+  console.log("✓ apple-icon.png");
 }
 
-// Generate opengraph-image.png (1200x630)
+async function generateFaviconPng() {
+  const svg = blockGridSvg(64);
+  await sharp(Buffer.from(svg)).png().toFile(join(appDir, "icon.png"));
+  console.log("✓ icon.png");
+}
+
 async function generateOGImage() {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
-      <rect width="1200" height="630" fill="#0a0a0a"/>
+  const W = 1200;
+  const H = 630;
+  // ASCII-like density field as pure geometry
+  const cols = 48;
+  const rows = 22;
+  const padX = 80;
+  const padY = 100;
+  const cellW = (W - padX * 2) / cols;
+  const cellH = (H - padY * 2 - 80) / rows;
 
-      <!-- Corner markers -->
-      <line x1="40" y1="56" x2="40" y2="40" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-      <line x1="40" y1="40" x2="56" y2="40" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+  // Simple radial falloff "portrait" blob for visual interest
+  const cx = W * 0.38;
+  const cy = H * 0.48;
+  let dots = "";
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = padX + c * cellW + cellW / 2;
+      const y = padY + r * cellH + cellH / 2;
+      const dx = (x - cx) / (W * 0.28);
+      const dy = (y - cy) / (H * 0.32);
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const noise = ((c * 17 + r * 31) % 10) / 40;
+      const density = Math.max(0, 1 - d + noise);
+      if (density < 0.18) continue;
+      const size = 1.2 + density * 5.5;
+      const opacity = 0.25 + density * 0.75;
+      dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${size.toFixed(2)}" fill="#f2f2f3" opacity="${opacity.toFixed(2)}"/>`;
+    }
+  }
 
-      <line x1="1160" y1="40" x2="1144" y2="40" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-      <line x1="1160" y1="40" x2="1160" y2="56" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+  <rect width="${W}" height="${H}" fill="#0a0a0c"/>
+  ${dots}
+  <text x="720" y="280" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="72" font-weight="600" fill="#f2f2f3" letter-spacing="0.08em">ASCII</text>
+  <text x="720" y="330" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20" font-weight="500" fill="#8a8a93" letter-spacing="0.12em">PHOTO TO TYPE LAB</text>
+  <text x="720" y="520" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" fill="#5c5c66" letter-spacing="0.06em">by m1ke.digital</text>
+</svg>`;
 
-      <line x1="40" y1="590" x2="40" y2="574" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-      <line x1="40" y1="590" x2="56" y2="590" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-
-      <line x1="1160" y1="574" x2="1160" y2="590" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-      <line x1="1144" y1="590" x2="1160" y2="590" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-
-      <!-- Large character -->
-      <text x="200" y="315" font-family="monospace" font-size="280" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">▓</text>
-
-      <!-- Main text -->
-      <text x="480" y="200" font-family="monospace" font-size="72" font-weight="600" fill="#ffffff" letter-spacing="0.05em">ASCII</text>
-
-      <!-- Subtext -->
-      <text x="480" y="290" font-family="monospace" font-size="18" font-weight="500" fill="#707070" letter-spacing="0.1em">IMAGE TO ASCII ART CONVERTER</text>
-    </svg>
-  `;
-
-  await sharp(Buffer.from(svg)).png().toFile(`${__dirname}/../app/opengraph-image.png`);
-  console.log("✓ Generated opengraph-image.png");
+  await sharp(Buffer.from(svg)).png().toFile(join(appDir, "opengraph-image.png"));
+  console.log("✓ opengraph-image.png");
 }
 
-// Generate both
+// Also write icon.svg for completeness
+function writeIconSvg() {
+  writeFileSync(join(appDir, "icon.svg"), blockGridSvg(32));
+  console.log("✓ icon.svg");
+}
+
 (async () => {
   try {
+    writeIconSvg();
     await generateAppleIcon();
+    await generateFaviconPng();
     await generateOGImage();
-    console.log("\n✓ All icons generated successfully!");
+    console.log("\n✓ All brand assets generated");
   } catch (error) {
-    console.error("Error generating icons:", error);
+    console.error(error);
     process.exit(1);
   }
 })();

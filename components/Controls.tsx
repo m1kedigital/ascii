@@ -1,340 +1,342 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import { AsciiSettings } from "./AsciiConverter";
+import {
+  AsciiSettings,
+  CHARSET_OPTIONS,
+  PRESETS,
+  SAMPLE_IMAGES,
+  type SampleImage,
+} from "@/lib/types";
 
 interface ControlsProps {
   settings: AsciiSettings;
   onSettingsChange: (settings: AsciiSettings) => void;
+  sourceLabel: string;
+  activeSampleId: string | null;
+  activePresetId: string | null;
+  onUploadClick: () => void;
+  onSampleSelect: (sample: SampleImage) => void;
+  onPresetSelect: (presetId: string) => void;
   onExport: (format: "png" | "jpg") => void;
-  onClear: () => void;
-  isMobile?: boolean;
+  onCopyText: () => void;
+  onRandomize: () => void;
+  onClear?: () => void;
+  hasImage: boolean;
+  compact?: boolean;
 }
 
-const charsetLabels: Record<AsciiSettings["charset"], string> = {
-  standard: "STANDARD",
-  dense: "DENSE",
-  blocks: "BLOCKS",
-  binary: "BINARY",
-  dots: "DOTS",
-};
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="section">
+      <div className="section-label">{label}</div>
+      {children}
+    </section>
+  );
+}
+
+function SliderRow({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  format,
+  onChange,
+  hint,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+  hint?: string;
+}) {
+  return (
+    <div className="control-row">
+      <div className="control-head">
+        <span className="control-label">{label}</span>
+        <span className="control-value">{format(value)}</span>
+      </div>
+      <input
+        type="range"
+        className="ui-range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+      />
+      {hint ? <div className="control-hint">{hint}</div> : null}
+    </div>
+  );
+}
 
 export default function Controls({
   settings,
   onSettingsChange,
+  sourceLabel,
+  activeSampleId,
+  activePresetId,
+  onUploadClick,
+  onSampleSelect,
+  onPresetSelect,
   onExport,
+  onCopyText,
+  onRandomize,
   onClear,
-  isMobile = false,
+  hasImage,
+  compact = false,
 }: ControlsProps) {
-  const colorModes: Array<AsciiSettings["colorMode"]> = useMemo(
-    () => ["mono", "preserve", "invert"],
-    []
-  );
-  const backgroundModes: Array<AsciiSettings["background"]> = useMemo(
-    () => ["white", "black", "transparent"],
-    []
-  );
-  const exportSizes: Array<AsciiSettings["exportSize"]> = useMemo(
-    () => [1, 2, 4],
-    []
-  );
-
-  const charsetOptions = useMemo(
-    () =>
-      Object.entries(charsetLabels).map(([id, label]) => ({
-        id,
-        label,
-      })),
-    []
-  );
-
-  const SegmentedControl = useCallback(
-    ({
-      label,
-      value,
-      options,
-      onChange,
-      dividerAbove,
-    }: {
-      label: string;
-      value: string;
-      options: Array<{ id: string; label: string }>;
-      onChange: (id: string) => void;
-      dividerAbove?: boolean;
-    }) => (
-      <div style={dividerAbove ? { paddingTop: "24px", borderTop: "1px solid #1a1a1a" } : { paddingTop: "24px" }}>
-        <div
-          className="text-xs font-medium tracking-[0.1em] uppercase text-[#707070] mb-2"
-          style={{ letterSpacing: "0.1em", marginBottom: "8px" }}
-        >
-          {label}
-        </div>
-        <div className="flex flex-col gap-1">
-          {options.map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => onChange(opt.id)}
-              className={`text-xs font-medium tracking-widest uppercase transition-all ${
-                value === opt.id
-                  ? "bg-white text-black"
-                  : "bg-transparent text-[#707070] hover:bg-[rgba(255,255,255,0.05)]"
-              }`}
-              style={{
-                padding: "8px 12px",
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    ),
-    []
-  );
-
-  const Slider = useCallback(
-    ({
-      label,
-      value,
-      min,
-      max,
-      step,
-      onChange,
-      formatValue,
-    }: {
-      label: string;
-      value: number;
-      min: number;
-      max: number;
-      step?: number;
-      onChange: (val: number) => void;
-      formatValue: (val: number) => string;
-    }) => (
-      <div style={{ paddingTop: "24px" }}>
-        <div className="flex justify-between items-baseline" style={{ marginBottom: "12px" }}>
-          <div
-            className="text-xs font-medium tracking-[0.1em] uppercase text-[#707070]"
-            style={{ letterSpacing: "0.1em" }}
-          >
-            {label}
-          </div>
-          <div className="text-xs font-medium text-white text-right font-mono">
-            {formatValue(value)}
-          </div>
-        </div>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step || "1"}
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="w-full h-1 appearance-none cursor-pointer"
-          style={{
-            background: "white",
-            WebkitAppearance: "none",
-          }}
-        />
-        <style>{`
-          input[type="range"]::-webkit-slider-thumb {
-            appearance: none;
-            width: ${isMobile ? "20px" : "8px"};
-            height: ${isMobile ? "20px" : "8px"};
-            background: white;
-            cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.5);
-          }
-          input[type="range"]::-moz-range-thumb {
-            width: ${isMobile ? "20px" : "8px"};
-            height: ${isMobile ? "20px" : "8px"};
-            background: white;
-            cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            border-radius: 0;
-          }
-        `}</style>
-      </div>
-    ),
-    []
-  );
+  const patch = (partial: Partial<AsciiSettings>) =>
+    onSettingsChange({ ...settings, ...partial });
 
   return (
-    <div
-      className="flex flex-col h-full overflow-y-auto"
-      style={{
-        padding: "24px",
-        maxWidth: "280px",
-      }}
-    >
-      {/* Charset - Segmented Control */}
-      <SegmentedControl
-        label="CHARACTER SET"
-        value={settings.charset}
-        options={charsetOptions}
-        onChange={(id) =>
-          onSettingsChange({
-            ...settings,
-            charset: id as AsciiSettings["charset"],
-          })
-        }
-      />
-
-      {/* Density Slider */}
-      <Slider
-        label="DENSITY"
-        value={settings.cellSize}
-        min={4}
-        max={20}
-        onChange={(val) => onSettingsChange({ ...settings, cellSize: val })}
-        formatValue={(val) => `${val}px`}
-      />
-
-      {/* Tile Aspect Slider */}
-      <Slider
-        label="TILE ASPECT"
-        value={settings.tileAspect}
-        min={0.4}
-        max={1.2}
-        step={0.05}
-        onChange={(val) => onSettingsChange({ ...settings, tileAspect: val })}
-        formatValue={(val) => val.toFixed(2)}
-      />
-
-      {/* Contrast Slider */}
-      <Slider
-        label="CONTRAST"
-        value={settings.contrast}
-        min={0.5}
-        max={2}
-        step={0.1}
-        onChange={(val) => onSettingsChange({ ...settings, contrast: val })}
-        formatValue={(val) => `${val.toFixed(1)}x`}
-      />
-
-      {/* Cut Darks Slider */}
-      <Slider
-        label="CUT DARKS"
-        value={settings.cutDarks}
-        min={0}
-        max={0.3}
-        step={0.01}
-        onChange={(val) => onSettingsChange({ ...settings, cutDarks: val })}
-        formatValue={(val) => val.toFixed(2)}
-      />
-
-      {/* Cut Lights Slider */}
-      <Slider
-        label="CUT LIGHTS"
-        value={settings.cutLights}
-        min={0}
-        max={0.3}
-        step={0.01}
-        onChange={(val) => onSettingsChange({ ...settings, cutLights: val })}
-        formatValue={(val) => val.toFixed(2)}
-      />
-
-      {/* Color Mode - Segmented Control with divider */}
-      <SegmentedControl
-        label="COLOR MODE"
-        value={settings.colorMode}
-        options={useMemo(
-          () =>
-            colorModes.map((mode) => ({
-              id: mode,
-              label: mode.toUpperCase(),
-            })),
-          [colorModes]
-        )}
-        onChange={(id) =>
-          onSettingsChange({
-            ...settings,
-            colorMode: id as AsciiSettings["colorMode"],
-          })
-        }
-        dividerAbove={true}
-      />
-
-      {/* Background - Segmented Control */}
-      <SegmentedControl
-        label="BACKGROUND"
-        value={settings.background}
-        options={useMemo(
-          () =>
-            backgroundModes.map((mode) => ({
-              id: mode,
-              label: mode.toUpperCase(),
-            })),
-          [backgroundModes]
-        )}
-        onChange={(id) =>
-          onSettingsChange({
-            ...settings,
-            background: id as AsciiSettings["background"],
-          })
-        }
-      />
-
-      {/* Export Size - Segmented Control with divider */}
-      <div style={{ paddingTop: "24px", borderTop: "1px solid #1a1a1a" }}>
-        <div
-          className="text-xs font-medium tracking-[0.1em] uppercase text-[#707070] mb-2"
-          style={{ letterSpacing: "0.1em", marginBottom: "8px" }}
-        >
-          EXPORT SIZE
-        </div>
-        <div className="flex gap-1">
-          {exportSizes.map((size) => (
-            <button
-              key={size}
-              onClick={() =>
-                onSettingsChange({
-                  ...settings,
-                  exportSize: size,
-                })
-              }
-              className={`flex-1 text-xs font-medium tracking-widest uppercase transition-all ${
-                settings.exportSize === size
-                  ? "bg-white text-black"
-                  : "bg-transparent text-[#707070] hover:bg-[rgba(255,255,255,0.05)]"
-              }`}
-              style={{
-                padding: "8px 12px",
-              }}
-            >
-              {size}x
+    <div className={compact ? "" : "rail-scroll"}>
+      <Section label="Source">
+        <div className="control-row">
+          <div className="control-head">
+            <span className="control-label">Current</span>
+            <span className="control-value">{sourceLabel || "—"}</span>
+          </div>
+          <div className="btn-row">
+            <button type="button" className="btn btn-secondary" onClick={onUploadClick}>
+              Upload
             </button>
-          ))}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={onRandomize}
+              disabled={!hasImage}
+              title="Jitter look settings"
+            >
+              Random
+            </button>
+          </div>
         </div>
-      </div>
+        <div className="control-row">
+          <div className="control-label" style={{ marginBottom: 4 }}>
+            Samples
+          </div>
+          <div className="sample-grid">
+            {SAMPLE_IMAGES.map((sample) => (
+              <button
+                key={sample.id}
+                type="button"
+                className={`sample-thumb${activeSampleId === sample.id ? " active" : ""}`}
+                onClick={() => onSampleSelect(sample)}
+                title={sample.label}
+              >
+                <img src={sample.url} alt={sample.alt} loading="eager" />
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="control-row">
+          <div className="control-label" style={{ marginBottom: 4 }}>
+            Looks
+          </div>
+          <div className="preset-row">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className={`preset-chip${activePresetId === preset.id ? " active" : ""}`}
+                onClick={() => onPresetSelect(preset.id)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Section>
 
-      {/* Export Buttons */}
-      <div className="flex flex-col" style={{ marginTop: "24px", gap: "8px" }}>
-        <button
-          onClick={() => onExport("png")}
-          className="w-full bg-white text-black text-xs font-medium tracking-wider uppercase hover:bg-[#707070] transition-colors"
-          style={{ padding: "12px" }}
-        >
-          Export PNG
-        </button>
-        <button
-          onClick={() => onExport("jpg")}
-          className="w-full bg-white text-black text-xs font-medium tracking-wider uppercase hover:bg-[#707070] transition-colors"
-          style={{ padding: "12px" }}
-        >
-          Export JPG
-        </button>
-        <button
-          onClick={onClear}
-          className="w-full text-xs font-medium tracking-wider uppercase hover:bg-[rgba(255,255,255,0.05)] transition-colors text-[#707070]"
-          style={{
-            padding: "12px",
-            border: "1px solid rgba(255,255,255,0.12)",
-            backgroundColor: "transparent",
-          }}
-        >
-          Clear
-        </button>
-      </div>
+      <Section label="Geometry">
+        <SliderRow
+          label="Density"
+          value={settings.cellSize}
+          min={4}
+          max={20}
+          format={(v) => `${v}px`}
+          onChange={(cellSize) => patch({ cellSize })}
+          hint="Smaller = more detail"
+        />
+        <SliderRow
+          label="Tile aspect"
+          value={settings.tileAspect}
+          min={0.4}
+          max={1.2}
+          step={0.05}
+          format={(v) => v.toFixed(2)}
+          onChange={(tileAspect) => patch({ tileAspect })}
+          hint="Character height stretch"
+        />
+      </Section>
+
+      <Section label="Tone">
+        <SliderRow
+          label="Contrast"
+          value={settings.contrast}
+          min={0.5}
+          max={2}
+          step={0.1}
+          format={(v) => `${v.toFixed(1)}×`}
+          onChange={(contrast) => patch({ contrast })}
+        />
+        <SliderRow
+          label="Lift shadows"
+          value={settings.cutDarks}
+          min={0}
+          max={0.3}
+          step={0.01}
+          format={(v) => v.toFixed(2)}
+          onChange={(cutDarks) => patch({ cutDarks })}
+          hint="Pull dark areas up"
+        />
+        <SliderRow
+          label="Clip highlights"
+          value={settings.cutLights}
+          min={0}
+          max={0.3}
+          step={0.01}
+          format={(v) => v.toFixed(2)}
+          onChange={(cutLights) => patch({ cutLights })}
+          hint="Pull bright areas down"
+        />
+      </Section>
+
+      <Section label="Charset">
+        <div className="control-row">
+          <div className="control-head">
+            <span className="control-label">Set</span>
+          </div>
+          <select
+            className="ui-select"
+            value={settings.charset}
+            onChange={(e) =>
+              patch({ charset: e.target.value as AsciiSettings["charset"] })
+            }
+          >
+            {CHARSET_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label} — {opt.sample}
+              </option>
+            ))}
+          </select>
+        </div>
+      </Section>
+
+      <Section label="Color">
+        <div className="control-row">
+          <div className="control-head">
+            <span className="control-label">Mode</span>
+          </div>
+          <div className="seg">
+            {(
+              [
+                ["mono", "Mono"],
+                ["preserve", "Color"],
+                ["invert", "Invert"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`seg-btn${settings.colorMode === id ? " active" : ""}`}
+                onClick={() => patch({ colorMode: id })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="control-row">
+          <div className="control-head">
+            <span className="control-label">Background</span>
+          </div>
+          <div className="seg">
+            {(
+              [
+                ["black", "Black"],
+                ["white", "White"],
+                ["transparent", "Clear"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`seg-btn${settings.background === id ? " active" : ""}`}
+                onClick={() => patch({ background: id })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      <Section label="Export">
+        <div className="control-row">
+          <div className="control-head">
+            <span className="control-label">Scale</span>
+          </div>
+          <div className="seg">
+            {([1, 2, 4] as const).map((size) => (
+              <button
+                key={size}
+                type="button"
+                className={`seg-btn${settings.exportSize === size ? " active" : ""}`}
+                onClick={() => patch({ exportSize: size })}
+              >
+                {size}×
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="btn-stack">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => onExport("png")}
+            disabled={!hasImage}
+          >
+            Export PNG
+          </button>
+          <div className="btn-row">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => onExport("jpg")}
+              disabled={!hasImage}
+            >
+              JPG
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onCopyText}
+              disabled={!hasImage}
+            >
+              Copy text
+            </button>
+          </div>
+          {onClear ? (
+            <button type="button" className="btn btn-ghost" onClick={onClear}>
+              Reset image
+            </button>
+          ) : null}
+        </div>
+        <div className="control-hint" style={{ marginTop: 10 }}>
+          S — snapshot PNG · client-side, no upload
+        </div>
+      </Section>
     </div>
   );
 }

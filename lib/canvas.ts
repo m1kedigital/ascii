@@ -1,4 +1,4 @@
-import { AsciiSettings } from "@/components/AsciiConverter";
+import type { AsciiSettings } from "@/lib/types";
 
 // iOS Safari limits canvas to ~16.7MP. Use conservative limit.
 const MAX_CANVAS_PIXELS = 12_000_000;
@@ -34,7 +34,6 @@ export function renderAsciiToCanvas(
     lineHeight = fontSize * 1.2;
     canvasWidth = maxWidth * charWidth + 40;
     canvasHeight = lines.length * lineHeight + 40;
-    console.log("Canvas too large, scaled fontSize to:", fontSize.toFixed(1));
   }
 
   canvas.width = canvasWidth * settings.exportSize;
