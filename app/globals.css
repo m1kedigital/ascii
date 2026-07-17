@@ -14,6 +14,7 @@ html[data-theme="dark"] {
   --text-dim: #5c5c66;
   --accent: #f2f2f3;
   --accent-fg: #0a0a0c;
+  --accent-hover: #ffffff;
   --danger: #f87171;
   --shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
   --rail: 320px;
@@ -35,8 +36,10 @@ html[data-theme="light"] {
   --text: #18181b;
   --text-muted: #52525b;
   --text-dim: #8a8a8d;
+  /* Solid ink primary — white label on near-black */
   --accent: #18181b;
   --accent-fg: #fafafa;
+  --accent-hover: #2e2e33;
   --danger: #dc2626;
   --shadow: 0 16px 48px rgba(0, 0, 0, 0.1);
   color-scheme: light;
@@ -413,8 +416,16 @@ input[type="range"].ui-range::-moz-range-thumb {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #d8d8dc;
-  border-color: #d8d8dc;
+  color: var(--accent-fg);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-color: var(--accent);
+  opacity: 0.4;
 }
 
 .btn-secondary {
@@ -785,7 +796,8 @@ input[type="range"].ui-range::-moz-range-thumb {
   }
 
   .mobile-bar-primary:hover:not(:disabled) {
-    filter: brightness(1.05);
+    color: var(--accent-fg) !important;
+    background: var(--accent-hover) !important;
   }
 
   .toast {
