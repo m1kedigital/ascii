@@ -10,8 +10,6 @@ interface MobileExportSheetProps {
   onCopyText: () => void;
   onCopyLink: () => void;
   onPrintPack: () => void;
-  onGifLoop: () => void;
-  exportingGif?: boolean;
   onClose: () => void;
   hasImage: boolean;
 }
@@ -23,8 +21,6 @@ export default function MobileExportSheet({
   onCopyText,
   onCopyLink,
   onPrintPack,
-  onGifLoop,
-  exportingGif = false,
   onClose,
   hasImage,
 }: MobileExportSheetProps) {
@@ -51,13 +47,13 @@ export default function MobileExportSheet({
 
   const run = (fn: () => void) => {
     fn();
-    setTimeout(onClose, 150);
+    setTimeout(onClose, 120);
   };
 
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet" style={{ maxHeight: "60dvh" }}>
+      <div className="sheet" style={{ maxHeight: "55dvh" }}>
         <div className="sheet-handle">
           <span />
         </div>
@@ -91,46 +87,50 @@ export default function MobileExportSheet({
                 type="button"
                 className="btn btn-primary"
                 disabled={!hasImage}
-                style={{ minHeight: 44 }}
+                style={{ minHeight: 48 }}
                 onClick={() => run(() => void onExport("png"))}
               >
                 Export PNG
               </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={!hasImage}
-                style={{ minHeight: 44 }}
-                onClick={() => run(() => void onExport("jpg"))}
-              >
-                Export JPG
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={!hasImage}
-                style={{ minHeight: 44 }}
-                onClick={() => run(() => void onExport("svg"))}
-              >
-                Export SVG
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={!hasImage}
-                style={{ minHeight: 44 }}
-                onClick={() => run(onCopyText)}
-              >
-                Copy text
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ minHeight: 44 }}
-                onClick={() => run(() => void onCopyLink())}
-              >
-                Copy link
-              </button>
+              <div className="btn-row">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={!hasImage}
+                  style={{ minHeight: 44 }}
+                  onClick={() => run(() => void onExport("jpg"))}
+                >
+                  JPG
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={!hasImage}
+                  style={{ minHeight: 44 }}
+                  onClick={() => run(() => void onExport("svg"))}
+                >
+                  SVG
+                </button>
+              </div>
+              <div className="btn-row">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={!hasImage}
+                  style={{ minHeight: 44 }}
+                  onClick={() => run(onCopyText)}
+                >
+                  Copy text
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ minHeight: 44 }}
+                  onClick={() => run(() => void onCopyLink())}
+                >
+                  Copy link
+                </button>
+              </div>
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -140,18 +140,9 @@ export default function MobileExportSheet({
               >
                 Print pack 4×
               </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={!hasImage || exportingGif}
-                style={{ minHeight: 44 }}
-                onClick={() => {
-                  void onGifLoop();
-                  setTimeout(onClose, 200);
-                }}
-              >
-                {exportingGif ? "GIF…" : "GIF loop"}
-              </button>
+              <p className="control-hint" style={{ marginTop: 4 }}>
+                GIF loop is available on desktop for best results.
+              </p>
             </div>
           </section>
         </div>

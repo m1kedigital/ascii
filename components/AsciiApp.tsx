@@ -58,6 +58,10 @@ export default function AsciiApp() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [showSource, setShowSource] = useState(false);
+  const [mobilePreview, setMobilePreview] = useState<"ascii" | "original">(
+    "ascii"
+  );
+  const [isMobile, setIsMobile] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [exportingGif, setExportingGif] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
@@ -85,6 +89,13 @@ export default function AsciiApp() {
       /* ignore */
     }
   }, [theme]);
+
+  useEffect(() => {
+    const sync = () => setIsMobile(window.innerWidth <= 860);
+    sync();
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
 
   const applyLook = useCallback((lookId: string) => {
     const preset = PRESETS.find((p) => p.id === lookId);
@@ -474,7 +485,11 @@ export default function AsciiApp() {
           break;
         case "v":
           e.preventDefault();
-          setShowSource((s) => !s);
+          if (window.innerWidth <= 860) {
+            setMobilePreview((m) => (m === "ascii" ? "original" : "ascii"));
+          } else {
+            setShowSource((s) => !s);
+          }
           break;
         case "l":
           e.preventDefault();
@@ -515,6 +530,12 @@ export default function AsciiApp() {
   const openUpload = () => fileInputRef.current?.click();
   const hasImage = Boolean(imageData && asciiData);
 
+  const previewMode = isMobile
+    ? mobilePreview
+    : showSource
+      ? "split"
+      : "ascii";
+
   const controlsProps = {
     settings,
     onSettingsChange: handleSettingsChange,
@@ -551,25 +572,54 @@ export default function AsciiApp() {
         }}
       />
 
-      <div className="app-shell">
+      <div className={`app-shell${isMobile ? " is-mobile" : ""}`}>
         <main className="app-stage">
           <div className="stage-toolbar">
-            <button
-              type="button"
-              className={`tool-btn${showSource ? " active" : ""}`}
-              onClick={() => setShowSource((s) => !s)}
-              title="Split view (V)"
-            >
-              Split
-            </button>
-            <button
-              type="button"
-              className="tool-btn"
-              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-              title="Theme (T)"
-            >
-              {theme === "dark" ? "Light" : "Dark"}
-            </button>
+            {isMobile ? (
+              <>
+                <button
+                  type="button"
+                  className={`tool-btn${mobilePreview === "original" ? " active" : ""}`}
+                  onClick={() =>
+                    setMobilePreview((m) =>
+                      m === "ascii" ? "original" : "ascii"
+                    )
+                  }
+                >
+                  {mobilePreview === "ascii" ? "Original" : "ASCII"}
+                </button>
+                <button
+                  type="button"
+                  className="tool-btn"
+                  onClick={() =>
+                    setTheme((t) => (t === "dark" ? "light" : "dark"))
+                  }
+                >
+                  {theme === "dark" ? "Light" : "Dark"}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={`tool-btn${showSource ? " active" : ""}`}
+                  onClick={() => setShowSource((s) => !s)}
+                  title="Split view (V)"
+                >
+                  Split
+                </button>
+                <button
+                  type="button"
+                  className="tool-btn"
+                  onClick={() =>
+                    setTheme((t) => (t === "dark" ? "light" : "dark"))
+                  }
+                  title="Theme (T)"
+                >
+                  {theme === "dark" ? "Light" : "Dark"}
+                </button>
+              </>
+            )}
           </div>
           <AsciiPreview
             asciiData={asciiData}
@@ -578,7 +628,7 @@ export default function AsciiApp() {
             canvasRef={canvasRef}
             sourceLabel={sourceLabel}
             isLoading={isLoading}
-            showSource={showSource}
+            previewMode={previewMode}
             imageData={imageData}
           />
         </main>
@@ -604,26 +654,57 @@ export default function AsciiApp() {
           />
         </aside>
 
-        <nav className="mobile-bar" aria-label="Mobile actions">
-          <button type="button" onClick={() => setShowControls(true)}>
-            Controls
-          </button>
-          <button type="button" onClick={() => setShowExport(true)}>
-            Export
-          </button>
-          <button
-            type="button"
-            className="danger"
-            onClick={() => setShowClearConfirm(true)}
-          >
-            Reset
-          </button>
-        </nav>
+        {/* Mobile chrome */}
+        <div className="mobile-chrome">
+          <div className="mobile-looks" aria-label="Looks">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className={`mobile-look-chip${
+                  activePresetId === preset.id ? " active" : ""
+                }`}
+                onClick={() => handlePresetSelect(preset.id)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <nav className="mobile-bar" aria-label="Mobile actions">
+            <button type="button" onClick={() => setShowControls(true)}>
+              Edit
+            </button>
+            <button
+              type="button"
+              className="mobile-bar-primary"
+              disabled={!hasImage}
+              onClick={() => void handleExport("png")}
+            >
+              PNG
+            </button>
+            <button type="button" onClick={() => setShowExport(true)}>
+              More
+            </button>
+          </nav>
+        </div>
       </div>
 
       {showControls && (
         <MobileControlsSheet
-          {...controlsProps}
+          settings={settings}
+          onSettingsChange={handleSettingsChange}
+          sourceLabel={sourceLabel}
+          activeSampleId={activeSampleId}
+          activePresetId={activePresetId}
+          previewMode={mobilePreview}
+          onPreviewModeChange={setMobilePreview}
+          onUploadClick={openUpload}
+          onSampleSelect={(s) => void loadSample(s, true)}
+          onPresetSelect={handlePresetSelect}
+          onRandomize={handleRandomize}
+          onResetLook={handleResetLook}
+          onOpenGallery={() => setShowGallery(true)}
+          hasImage={hasImage}
           onClose={() => setShowControls(false)}
         />
       )}
@@ -635,8 +716,6 @@ export default function AsciiApp() {
           onCopyText={handleCopyText}
           onCopyLink={handleCopyLink}
           onPrintPack={handlePrintPack}
-          onGifLoop={handleGifLoop}
-          exportingGif={exportingGif}
           onClose={() => setShowExport(false)}
           hasImage={hasImage}
         />
