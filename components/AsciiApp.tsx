@@ -23,6 +23,7 @@ import {
   settingsFromSearchParams,
   settingsToSearchParams,
 } from "@/lib/url-state";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import AsciiPreview from "./AsciiPreview";
 import Controls from "./Controls";
 import Toast from "./Toast";
@@ -458,13 +459,22 @@ export default function AsciiApp() {
 
   const handleCopyText = useCallback(async () => {
     if (!asciiData) return;
+    const text = asciiData.trimEnd();
     try {
-      await navigator.clipboard.writeText(asciiData.trimEnd());
-      showToast("ASCII copied");
+      await copyTextToClipboard(text);
+      const kb = Math.round(new Blob([text]).size / 1024);
+      showToast(kb > 200 ? `ASCII copied (~${kb} KB)` : "ASCII copied");
     } catch {
-      showToast("Could not copy");
+      // Last resort: download as .txt so user still gets the data
+      try {
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        downloadBlob(blob, `ascii-${slugify(sourceLabel || "art")}.txt`);
+        showToast("Clipboard blocked — downloaded .txt");
+      } catch {
+        showToast("Could not copy — try lower density");
+      }
     }
-  }, [asciiData, showToast]);
+  }, [asciiData, showToast, sourceLabel]);
 
   const handleCopyLink = useCallback(async () => {
     const qs = settingsToSearchParams({
@@ -475,7 +485,7 @@ export default function AsciiApp() {
     });
     const url = `${window.location.origin}${window.location.pathname}${qs}`;
     try {
-      await navigator.clipboard.writeText(url);
+      await copyTextToClipboard(url);
       showToast("Link copied");
     } catch {
       showToast("Could not copy link");
