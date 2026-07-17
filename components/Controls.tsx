@@ -31,6 +31,8 @@ interface ControlsProps {
   hasImage: boolean;
   compact?: boolean;
   onClear?: () => void;
+  /** Optional: make About kbd keys trigger real actions */
+  onShortcut?: (key: "1" | "2" | "3" | "4" | "5" | "6" | "r" | "c" | "s" | "v" | "l" | "t") => void;
 }
 
 function Section({
@@ -110,9 +112,27 @@ export default function Controls({
   hasImage,
   compact = false,
   onClear,
+  onShortcut,
 }: ControlsProps) {
   const patch = (partial: Partial<AsciiSettings>) =>
     onSettingsChange({ ...settings, ...partial });
+
+  const Kbd = ({
+    k,
+    label,
+  }: {
+    k: "1" | "2" | "3" | "4" | "5" | "6" | "r" | "c" | "s" | "v" | "l" | "t";
+    label?: string;
+  }) => (
+    <button
+      type="button"
+      className="kbd-btn"
+      onClick={() => onShortcut?.(k)}
+      title={label || k.toUpperCase()}
+    >
+      {k.toUpperCase()}
+    </button>
+  );
 
   return (
     <div className={compact ? "" : "rail-scroll"}>
@@ -407,9 +427,13 @@ export default function Controls({
               className="btn btn-secondary"
               onClick={() => onExport("svg")}
               disabled={!hasImage}
+              title="Compact mono SVG (capped — dense/color may refuse)"
             >
               SVG
             </button>
+          </div>
+          <div className="control-hint" style={{ marginTop: -4 }}>
+            SVG is compact mono vector · huge grids → use PNG
           </div>
           <div className="btn-row">
             <button
@@ -457,14 +481,31 @@ export default function Controls({
           Client-side · no upload · free. Photo → type for designers.
         </p>
         <div className="shortcuts">
-          <div>
-            <kbd>1</kbd>–<kbd>6</kbd> looks
+          <div className="shortcut-row">
+            <Kbd k="1" label="Look 1" />
+            <span className="shortcut-dash">–</span>
+            <Kbd k="6" label="Look 6" />
+            <span className="shortcut-label">looks</span>
           </div>
-          <div>
-            <kbd>R</kbd> random · <kbd>C</kbd> copy · <kbd>S</kbd> PNG
+          <div className="shortcut-row">
+            <Kbd k="r" label="Random" />
+            <span className="shortcut-label">random</span>
+            <span className="shortcut-dot">·</span>
+            <Kbd k="c" label="Copy text" />
+            <span className="shortcut-label">copy</span>
+            <span className="shortcut-dot">·</span>
+            <Kbd k="s" label="Export PNG" />
+            <span className="shortcut-label">PNG</span>
           </div>
-          <div>
-            <kbd>V</kbd> split · <kbd>L</kbd> link · <kbd>T</kbd> theme
+          <div className="shortcut-row">
+            <Kbd k="v" label="Split / original" />
+            <span className="shortcut-label">split</span>
+            <span className="shortcut-dot">·</span>
+            <Kbd k="l" label="Copy link" />
+            <span className="shortcut-label">link</span>
+            <span className="shortcut-dot">·</span>
+            <Kbd k="t" label="Theme" />
+            <span className="shortcut-label">theme</span>
           </div>
         </div>
       </section>

@@ -356,10 +356,17 @@ export default function AsciiApp() {
       const slug = slugify(sourceLabel || "art");
 
       if (format === "svg") {
-        const svg = asciiToSvg(asciiData, asciiColors, settings);
-        const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+        const result = asciiToSvg(asciiData, asciiColors, settings);
+        if (!result.ok) {
+          showToast(result.reason);
+          return;
+        }
+        const blob = new Blob([result.svg], {
+          type: "image/svg+xml;charset=utf-8",
+        });
         downloadBlob(blob, `ascii-${slug}.svg`);
-        showToast("Exported SVG");
+        const kb = Math.round(result.bytes / 1024);
+        showToast(kb < 1024 ? `SVG · ${kb} KB` : `SVG · ${(kb / 1024).toFixed(1)} MB`);
         return;
       }
 
@@ -573,6 +580,50 @@ export default function AsciiApp() {
       ? "split"
       : "ascii";
 
+  const handleShortcut = useCallback(
+    (key: "1" | "2" | "3" | "4" | "5" | "6" | "r" | "c" | "s" | "v" | "l" | "t") => {
+      if (key >= "1" && key <= "6") {
+        const idx = parseInt(key, 10) - 1;
+        if (PRESETS[idx]) applyLook(PRESETS[idx].id);
+        return;
+      }
+      switch (key) {
+        case "r":
+          handleRandomize();
+          break;
+        case "c":
+          void handleCopyText();
+          break;
+        case "s":
+          void handleExport("png");
+          break;
+        case "v":
+          if (isMobile) {
+            setMobilePreview((m) => (m === "ascii" ? "original" : "ascii"));
+          } else {
+            setShowSource((s) => !s);
+          }
+          break;
+        case "l":
+          void handleCopyLink();
+          break;
+        case "t":
+          setTheme((t) => (t === "dark" ? "light" : "dark"));
+          break;
+        default:
+          break;
+      }
+    },
+    [
+      applyLook,
+      handleCopyLink,
+      handleCopyText,
+      handleExport,
+      handleRandomize,
+      isMobile,
+    ]
+  );
+
   const controlsProps = {
     settings,
     onSettingsChange: handleSettingsChange,
@@ -594,6 +645,7 @@ export default function AsciiApp() {
     onOpenGallery: () => setShowGallery(true),
     exportingGif,
     hasImage,
+    onShortcut: handleShortcut,
   };
 
   return (

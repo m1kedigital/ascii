@@ -1,10 +1,17 @@
 import type { AsciiSettings } from "./types";
 
+/** Soft cap — above this, SVG is refused (use PNG). */
+export const SVG_MAX_CHARS = 25_000;
+/** Hard refuse if estimated serialized size would explode */
+export const SVG_MAX_BYTES = 1_500_000; // ~1.5 MB
+
 export function slugify(label: string): string {
-  return label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "") || "art";
+  return (
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "art"
+  );
 }
 
 export function downloadBlob(blob: Blob, filename: string) {
@@ -37,64 +44,100 @@ export function canvasToBlob(
   });
 }
 
-/** Build monospaced SVG from ASCII grid */
+export type SvgResult =
+  | { ok: true; svg: string; bytes: number }
+  | { ok: false; reason: string };
+
+/**
+ * Compact monospaced SVG.
+ * - mono: one <text> + tspans (tiny)
+ * - color: run-length spans per row (still capped)
+ * Never emits one <text> per character (that caused ~60MB dumps).
+ */
 export function asciiToSvg(
   asciiData: string,
   asciiColors: (string | null)[][],
   settings: AsciiSettings
-): string {
-  const lines = asciiData.trimEnd().split("\n");
+): SvgResult {
+  const lines = asciiData.trimEnd().split("\n").filter((l, i, a) => l.length || i < a.length - 1);
   const cols = Math.max(...lines.map((l) => l.length), 1);
   const rows = lines.length;
-  const fontSize = settings.cellSize;
+  const totalChars = lines.reduce((n, l) => n + l.length, 0);
+
+  if (totalChars > SVG_MAX_CHARS) {
+    return {
+      ok: false,
+      reason: `SVG too dense (${totalChars.toLocaleString()} chars). Lower density or use PNG.`,
+    };
+  }
+
+  // Fixed compact font size for SVG (exportSize does not bloat vector text)
+  const fontSize = Math.max(6, Math.min(14, settings.cellSize));
   const charW = fontSize * 0.6;
-  const lineH = fontSize * 1.2;
-  const pad = 20;
-  const width = cols * charW + pad * 2;
-  const height = rows * lineH + pad * 2 + (settings.credit ? 18 : 0);
+  const lineH = fontSize * 1.15;
+  const pad = 16;
+  const width = Math.ceil(cols * charW + pad * 2);
+  const height = Math.ceil(rows * lineH + pad * 2 + (settings.credit ? 16 : 0));
 
   let bg = "none";
-  if (settings.background === "black") bg = "#000000";
-  if (settings.background === "white") bg = "#ffffff";
+  if (settings.background === "black") bg = "#000";
+  if (settings.background === "white") bg = "#fff";
 
   const defaultFill =
-    settings.background === "white" ? "#000000" : "#ffffff";
+    settings.background === "white" ? "#000" : "#fff";
 
   const useColor = settings.colorMode !== "mono";
   let body = "";
 
-  if (useColor) {
-    lines.forEach((line, row) => {
-      let x = pad;
-      const y = pad + row * lineH + fontSize;
-      for (let c = 0; c < line.length; c++) {
-        const ch = line[c];
-        const fill = asciiColors[row]?.[c] || defaultFill;
-        const esc = escapeXml(ch);
-        body += `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" fill="${fill}">${esc}</text>`;
-        x += charW;
-      }
-    });
+  if (!useColor) {
+    // Single text, tspans for lines — kilobytes, not megabytes
+    const tspans = lines
+      .map((line, i) => {
+        const y = pad + fontSize + i * lineH;
+        return `<tspan x="${pad}" y="${y.toFixed(1)}">${escapeXml(line)}</tspan>`;
+      })
+      .join("");
+    body = `<text fill="${defaultFill}" xml:space="preserve">${tspans}</text>`;
   } else {
-    // Single color: one text block per line for smaller SVG
-    lines.forEach((line, row) => {
-      const y = pad + row * lineH + fontSize;
-      body += `<text x="${pad}" y="${y.toFixed(2)}" fill="${defaultFill}">${escapeXml(line)}</text>`;
-    });
+    // Run-length encode same-color runs per row
+    for (let row = 0; row < lines.length; row++) {
+      const line = lines[row];
+      const y = pad + fontSize + row * lineH;
+      let c = 0;
+      while (c < line.length) {
+        const fill = asciiColors[row]?.[c] || defaultFill;
+        let run = line[c];
+        let n = 1;
+        while (
+          c + n < line.length &&
+          (asciiColors[row]?.[c + n] || defaultFill) === fill
+        ) {
+          run += line[c + n];
+          n++;
+        }
+        const x = pad + c * charW;
+        body += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" fill="${fill}" xml:space="preserve">${escapeXml(run)}</text>`;
+        c += n;
+      }
+    }
   }
 
   if (settings.credit) {
-    const cy = height - 8;
-    body += `<text x="${pad}" y="${cy}" fill="${defaultFill}" font-size="10" opacity="0.45">ascii.m1ke.digital</text>`;
+    const cy = height - 6;
+    body += `<text x="${pad}" y="${cy}" fill="${defaultFill}" font-size="9" opacity=".4">ascii.m1ke.digital</text>`;
   }
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width.toFixed(0)}" height="${height.toFixed(0)}" viewBox="0 0 ${width.toFixed(1)} ${height.toFixed(1)}">
-  <rect width="100%" height="100%" fill="${bg}"/>
-  <g font-family="ui-monospace, 'IBM Plex Mono', Menlo, monospace" font-size="${fontSize}" font-weight="400" xml:space="preserve">
-${body}
-  </g>
-</svg>`;
+  const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="${bg}"/><g font-family="ui-monospace,Menlo,monospace" font-size="${fontSize}" font-weight="400">${body}</g></svg>`;
+
+  const bytes = new Blob([svg]).size;
+  if (bytes > SVG_MAX_BYTES) {
+    return {
+      ok: false,
+      reason: `SVG would be ~${Math.round(bytes / 1024 / 1024)}MB. Use mono + lower density, or PNG.`,
+    };
+  }
+
+  return { ok: true, svg, bytes };
 }
 
 function escapeXml(s: string): string {
@@ -105,12 +148,10 @@ function escapeXml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Minimal GIF89a encoder for palette frames (RGBA → grayscale-ish) */
 export async function encodeGif(
   frames: ImageData[],
-  delayCs: number // centiseconds
+  delayCs: number
 ): Promise<Blob> {
-  // Dynamic import optional pure encoder — use built-in minimal path
   const { encodeGifFrames } = await import("./gif-encode");
   return encodeGifFrames(frames, delayCs);
 }
