@@ -1,166 +1,129 @@
 /**
- * OG for Telegram / iMessage / Twitter — must read at ~400px wide.
- * Bold photo + coarse ASCII blocks + huge type. No fine noise.
- *
+ * Clean dark OG — no full-bleed photo, Inter + JetBrains Mono.
  * node scripts/generate-og.mjs
  */
-import { createCanvas, loadImage } from "canvas";
+import { createCanvas, registerFont } from "canvas";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = join(__dirname, "..");
-// Strong subject + geometry — works as coarse ASCII
-const samplePath = join(root, "public/samples/01-architecture.jpg");
-const outPath = join(root, "app/opengraph-image.png");
+const fonts = join(__dirname, "fonts");
+const outPath = join(__dirname, "../app/opengraph-image.png");
+
+registerFont(join(fonts, "Inter-SemiBold.ttf"), {
+  family: "Inter",
+  weight: "600",
+});
+registerFont(join(fonts, "Inter-Medium.ttf"), {
+  family: "Inter",
+  weight: "500",
+});
+registerFont(join(fonts, "JetBrainsMono-Regular.ttf"), {
+  family: "JB Mono",
+  weight: "400",
+});
+registerFont(join(fonts, "JetBrainsMono-SemiBold.ttf"), {
+  family: "JB Mono",
+  weight: "600",
+});
 
 const W = 1200;
 const H = 630;
 
-// Dense ramp for bold block look (dark → light)
-const RAMP = " ░▒▓█";
-
-function sampleToBlocks(img, cols, rows) {
-  const c = createCanvas(cols, rows);
-  const ctx = c.getContext("2d");
-  // Cover-crop center
-  const scale = Math.max(cols / img.width, rows / img.height);
-  const dw = img.width * scale;
-  const dh = img.height * scale;
-  ctx.drawImage(img, (cols - dw) / 2, (rows - dh) / 2, dw, dh);
-  const { data } = ctx.getImageData(0, 0, cols, rows);
-  const grid = [];
-  for (let y = 0; y < rows; y++) {
-    const row = [];
-    for (let x = 0; x < cols; x++) {
-      const i = (y * cols + x) * 4;
-      let b = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255;
-      // Punch contrast so blocks read at thumbnail size
-      b = Math.pow(Math.min(1, Math.max(0, (b - 0.15) / 0.7)), 0.85);
-      const idx = Math.min(RAMP.length - 1, Math.floor(b * (RAMP.length - 1)));
-      row.push({ ch: RAMP[idx], b });
-    }
-    grid.push(row);
-  }
-  return grid;
-}
-
 async function main() {
-  const src = await loadImage(samplePath);
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext("2d");
 
-  // === Full-bleed photo (cover) ===
-  const scale = Math.max(W / src.width, H / src.height);
-  const dw = src.width * scale;
-  const dh = src.height * scale;
-  ctx.drawImage(src, (W - dw) / 2, (H - dh) / 2 - 40, dw, dh);
-
-  // Dark scrim — left readable brand zone + bottom
-  const g1 = ctx.createLinearGradient(0, 0, W * 0.72, 0);
-  g1.addColorStop(0, "rgba(6,6,8,0.92)");
-  g1.addColorStop(0.45, "rgba(6,6,8,0.55)");
-  g1.addColorStop(1, "rgba(6,6,8,0.15)");
-  ctx.fillStyle = g1;
+  // Pure dark surface
+  ctx.fillStyle = "#0a0a0c";
   ctx.fillRect(0, 0, W, H);
 
-  const g2 = ctx.createLinearGradient(0, H * 0.45, 0, H);
-  g2.addColorStop(0, "rgba(6,6,8,0)");
-  g2.addColorStop(1, "rgba(6,6,8,0.75)");
-  ctx.fillStyle = g2;
+  // Soft radial glow (no photo)
+  const glow = ctx.createRadialGradient(W * 0.72, H * 0.42, 20, W * 0.72, H * 0.42, 380);
+  glow.addColorStop(0, "rgba(255,255,255,0.06)");
+  glow.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
 
-  // === Coarse ASCII panel (right third) — big glyphs, thumbnail-safe ===
-  const panelX = 620;
-  const panelY = 70;
-  const panelW = 520;
-  const panelH = 400;
-  const cols = 28;
-  const rows = 18;
-  const grid = sampleToBlocks(src, cols, rows);
-
-  // Panel plate
-  ctx.fillStyle = "rgba(8,8,10,0.78)";
-  roundRect(ctx, panelX, panelY, panelW, panelH, 10);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
-  ctx.lineWidth = 1;
-  roundRect(ctx, panelX, panelY, panelW, panelH, 10);
+  // Corner markers (product DNA)
+  const m = 40;
+  const len = 18;
+  ctx.strokeStyle = "rgba(255,255,255,0.22)";
+  ctx.lineWidth = 1.5;
+  // TL
+  ctx.beginPath();
+  ctx.moveTo(m, m + len);
+  ctx.lineTo(m, m);
+  ctx.lineTo(m + len, m);
+  ctx.stroke();
+  // TR
+  ctx.beginPath();
+  ctx.moveTo(W - m - len, m);
+  ctx.lineTo(W - m, m);
+  ctx.lineTo(W - m, m + len);
+  ctx.stroke();
+  // BL
+  ctx.beginPath();
+  ctx.moveTo(m, H - m - len);
+  ctx.lineTo(m, H - m);
+  ctx.lineTo(m + len, H - m);
+  ctx.stroke();
+  // BR
+  ctx.beginPath();
+  ctx.moveTo(W - m - len, H - m);
+  ctx.lineTo(W - m, H - m);
+  ctx.lineTo(W - m, H - m - len);
   ctx.stroke();
 
-  // Draw blocks as filled squares (not tiny text) — reads on Telegram
-  const pad = 18;
-  const cellW = (panelW - pad * 2) / cols;
-  const cellH = (panelH - pad * 2 - 28) / rows;
-  const gap = 1.5;
+  // Left brand stack
+  ctx.fillStyle = "#f4f4f5";
+  ctx.font = "600 92px Inter";
+  ctx.fillText("ASCII", 88, 250);
 
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const { b } = grid[y][x];
-      if (b < 0.08) continue;
-      const a = 0.2 + b * 0.85;
-      ctx.fillStyle = `rgba(242,242,243,${a.toFixed(3)})`;
-      const px = panelX + pad + x * cellW + gap / 2;
-      const py = panelY + pad + 22 + y * cellH + gap / 2;
-      ctx.fillRect(px, py, cellW - gap, cellH - gap);
+  ctx.fillStyle = "#a1a1aa";
+  ctx.font = "500 22px Inter";
+  ctx.fillText("Photo to type lab", 92, 300);
+
+  // Mono meta line
+  ctx.fillStyle = "#71717a";
+  ctx.font = "400 15px JB Mono";
+  ctx.fillText("client-side  ·  no upload  ·  png / svg / gif", 92, 348);
+
+  ctx.fillStyle = "#52525b";
+  ctx.font = "400 14px JB Mono";
+  ctx.fillText("by m1ke.digital", 92, H - 64);
+
+  // Right: geometric block glyph (3×3 mark scaled large) — product icon language
+  const markX = 720;
+  const markY = 145;
+  const cell = 72;
+  const gap = 14;
+  const opacities = [
+    [1, 0.45, 0.18],
+    [0.45, 1, 0.45],
+    [0.18, 0.45, 1],
+  ];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      ctx.fillStyle = `rgba(244,244,245,${opacities[r][c]})`;
+      ctx.fillRect(markX + c * (cell + gap), markY + r * (cell + gap), cell, cell);
     }
   }
 
-  // Panel label
-  ctx.font = "600 12px ui-monospace, Menlo, monospace";
-  ctx.fillStyle = "rgba(255,255,255,0.45)";
-  ctx.fillText("OUTPUT", panelX + pad, panelY + 22);
+  // Small mono caption under mark
+  ctx.fillStyle = "#52525b";
+  ctx.font = "400 13px JB Mono";
+  ctx.fillText("image → characters", markX, markY + 3 * (cell + gap) + 28);
 
-  // === Brand left ===
-  ctx.fillStyle = "#f2f2f3";
-  ctx.font = "600 78px ui-monospace, Menlo, monospace";
-  ctx.fillText("ASCII", 56, 200);
-
-  ctx.fillStyle = "#a1a1aa";
-  ctx.font = "500 20px ui-monospace, Menlo, monospace";
-  ctx.fillText("PHOTO  →  TYPE  LAB", 56, 250);
-
-  // Value chips
-  const chips = ["CLIENT-SIDE", "NO UPLOAD", "PNG · SVG · GIF"];
-  let chipX = 56;
-  ctx.font = "500 12px ui-monospace, Menlo, monospace";
-  for (const chip of chips) {
-    const tw = ctx.measureText(chip).width;
-    ctx.strokeStyle = "rgba(255,255,255,0.18)";
-    ctx.fillStyle = "rgba(255,255,255,0.06)";
-    roundRect(ctx, chipX, 280, tw + 20, 30, 6);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "rgba(242,242,243,0.75)";
-    ctx.fillText(chip, chipX + 10, 300);
-    chipX += tw + 32;
-  }
-
-  ctx.fillStyle = "rgba(255,255,255,0.4)";
-  ctx.font = "400 16px ui-monospace, Menlo, monospace";
-  ctx.fillText("by m1ke.digital", 56, H - 48);
-
-  // Outer hairline
+  // Hairline
   ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
   ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
 
   const buf = canvas.toBuffer("image/png");
-  await sharp(buf)
-    .png({ compressionLevel: 8, quality: 90 })
-    .toFile(outPath);
-
-  console.log("✓ opengraph-image.png", outPath);
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+  await sharp(buf).png({ compressionLevel: 9 }).toFile(outPath);
+  console.log("✓ opengraph-image.png (no photo, Inter + JetBrains Mono)");
 }
 
 main().catch((e) => {
